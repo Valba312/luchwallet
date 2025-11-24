@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Кошелёк сотрудника</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-main: #f4f5fb;
+      --bg-card: #ffffff;
+      --bg-dark: #070b16;
+      --accent-yellow: #facc15;
+      --accent-yellow-soft: #fef9c3;
+      --accent-blue-soft: #e0f2fe;
+      --accent-blue: #0369a1;
+      --accent-red-soft: #fee2e2;
+      --accent-red: #b91c1c;
+      --accent-green-soft: #dcfce7;
+      --accent-green: #166534;
+      --text-main: #020617;
+      --text-muted: #6b7280;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --shadow-soft: 0 12px 30px rgba(15, 23, 42, 0.18);
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg-main);
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 900px;
+      padding: 16px 12px 24px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .header-title {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .header-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .header-tag {
+      font-size: 11px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--accent-yellow);
+      background: var(--accent-yellow-soft);
+      color: #854d0e;
+      white-space: nowrap;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.4fr 2fr;
+      gap: 12px;
+    }
+    @media (max-width: 720px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .employee-card {
+      background: var(--bg-dark);
+      color: #e5e7eb;
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      box-shadow: var(--shadow-soft);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .employee-top {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .employee-avatar {
+      width: 64px;
+      height: 64px;
+      border-radius: 18px;
+      overflow: hidden;
+      background: linear-gradient(135deg, #facc15, #f97316);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 24px;
+      color: #111827;
+      flex-shrink: 0;
+    }
+
+    .employee-main { flex: 1; }
+
+    .employee-name {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .employee-role {
+      font-size: 13px;
+      color: #cbd5f5;
+    }
+
+    .employee-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .chip {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      background: rgba(15, 23, 42, 0.7);
+      white-space: nowrap;
+    }
+
+    .employee-status {
+      margin-top: 6px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-pill {
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--accent-green-soft);
+      color: var(--accent-green);
+      font-size: 11px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    @media (max-width: 540px) {
+      .stats-grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--bg-card);
+      border-radius: var(--radius-md);
+      padding: 14px 14px 12px;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+      border: 1px solid rgba(226, 232, 240, 0.9);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .card-title {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .card-badge {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .badge-yellow {
+      background: var(--accent-yellow-soft);
+      color: #92400e;
+    }
+
+    .badge-blue {
+      background: var(--accent-blue-soft);
+      color: var(--accent-blue);
+    }
+
+    .badge-red {
+      background: var(--accent-red-soft);
+      color: var(--accent-red);
+    }
+
+    .card-value {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .card-sub {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .list {
+      margin-top: 4px;
+      padding-left: 16px;
+      font-size: 12px;
+      color: #4b5563;
+    }
+
+    .list li + li { margin-top: 2px; }
+    .list span { font-weight: 600; }
+
+    .error {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #b91c1c;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div>
+        <div class="header-title">Кошелёк сотрудника</div>
+        <div class="header-subtitle">
+          Все данные по сотруднику: зарплата, ставка, стаж, время, дисциплина и отсутствия.
+        </div>
+      </div>
+      <div class="header-tag">Транспортная компания «Луч» · мини-апп</div>
+    </header>
+
+    <main class="layout">
+      <!-- Сотрудник -->
+      <section class="employee-card">
+        <div class="employee-top">
+          <div class="employee-avatar" id="employee-avatar">ИИ</div>
+          <div class="employee-main">
+            <div class="employee-name" id="employee-name">Иванов Иван Иванович</div>
+            <div class="employee-role" id="employee-role">
+              Водитель грузового автомобиля · Колонна № 3
+            </div>
+          </div>
+        </div>
+
+        <div class="employee-chips">
+          <div class="chip" id="chip-rate">Ставка: 1 850 ₽/смена</div>
+          <div class="chip" id="chip-exp">Стаж: 4 года 7 мес.</div>
+        </div>
+
+        <div class="employee-status">
+          <span style="color:#9ca3af;">Статус занятости:</span>
+          <span class="status-pill" id="status-pill">Активен · Основное место</span>
+        </div>
+
+        <div class="error" id="error-message" style="display:none;"></div>
+      </section>
+
+      <!-- Показатели -->
+      <section class="stats-grid">
+        <article class="card">
+          <div class="card-header">
+            <span class="card-title">Текущая зарплата</span>
+            <span class="card-badge badge-yellow">расчёт месяца</span>
+          </div>
+          <div class="card-value" id="salary">92 430 ₽</div>
+          <div class="card-sub" id="salary-desc">
+            С учётом премий за рейсы и ночные смены.
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <span class="card-title">Отработанное время</span>
+            <span class="card-badge badge-blue">на сегодня</span>
+          </div>
+          <div class="card-value" id="hours">152 ч</div>
+          <div class="card-sub" id="hours-desc">
+            Переработки: 18 ч · Ночные: 12 ч.
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <span class="card-title">Штрафы и прогулы</span>
+            <span class="card-badge badge-red">дисциплина</span>
+          </div>
+          <ul class="list" id="penalties-list">
+            <li><span>Штрафов:</span> 1 — превышение времени стоянки</li>
+            <li><span>Прогулы:</span> нет</li>
+            <li><span>Замечания:</span> отсутствуют</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <span class="card-title">Больничные и отсутствия</span>
+          </div>
+          <ul class="list" id="sick-list">
+            <li><span>Больничные:</span> 3 дня (ОРВИ)</li>
+            <li><span>Отпуск:</span> 14/28 дней</li>
+            <li><span>Отсутствия:</span> 1 день за свой счёт</li>
+          </ul>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+
+    function updateFromBackend(data) {
+      if (data.name) document.getElementById("employee-name").textContent = data.name;
+      if (data.initials) document.getElementById("employee-avatar").textContent = data.initials;
+      if (data.role) document.getElementById("employee-role").textContent = data.role;
+      if (data.rate) document.getElementById("chip-rate").textContent = "Ставка: " + data.rate;
+      if (data.experience) document.getElementById("chip-exp").textContent = "Стаж: " + data.experience;
+      if (data.status) document.getElementById("status-pill").textContent = data.status;
+      if (data.salary) document.getElementById("salary").textContent = data.salary;
+      if (data.salary_desc) document.getElementById("salary-desc").textContent = data.salary_desc;
+      if (data.hours) document.getElementById("hours").textContent = data.hours;
+      if (data.hours_desc) document.getElementById("hours-desc").textContent = data.hours_desc;
+      if (data.penalties_html) document.getElementById("penalties-list").innerHTML = data.penalties_html;
+      if (data.sick_html) document.getElementById("sick-list").innerHTML = data.sick_html;
+    }
+
+    async function initApp() {
+      if (tg) tg.expand();
+
+      let initData = tg?.initData || "";
+
+      // для локального теста в браузере без Telegram
+      if (!initData) {
+        const mockUser = { id: 1, first_name: "Иван", last_name: "Иванов" };
+        initData = "user=" + encodeURIComponent(JSON.stringify(mockUser));
+      }
+
+      try {
+        const res = await fetch("/api/employee", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ initData })
+        });
+
+        if (!res.ok) {
+          throw new Error("Ошибка API: " + res.status);
+        }
+
+        const data = await res.json();
+        updateFromBackend(data);
+      } catch (e) {
+        const err = document.getElementById("error-message");
+        err.textContent = "Не удалось загрузить данные сотрудника";
+        err.style.display = "block";
+        console.error(e);
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", initApp);
+  </script>
+</body>
+</html>
