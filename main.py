@@ -34,9 +34,6 @@ DATABASE_URL = "sqlite:///./luchwallet.db"
 PHOTOS_DIR = "photos"
 os.makedirs(PHOTOS_DIR, exist_ok=True)
 
-# Для PostgreSQL потом будет так:
-# DATABASE_URL = "postgresql+psycopg2://user:password@host:5432/dbname"
-
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {},
@@ -109,6 +106,23 @@ class Admin(Base):
     password_hash = Column(String(255), nullable=False)
     name = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Payment(Base):
+    """
+    История начислений/удержаний сотрудника.
+    amount в рублях:
+      >0 — начисление (зарплата, премия, переработка)
+      <0 — удержание (штраф, вычет)
+    """
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, index=True, nullable=False)
+    type = Column(String(50), nullable=False)  # salary / bonus / overtime / night / fine / other
+    amount = Column(Integer, nullable=False)
+    comment = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
 
 # ===============================
@@ -195,6 +209,25 @@ class EmployeeDetail(EmployeeBase):
     class Config:
         orm_mode = True
         allow_population_by_field_name = True
+
+
+class PaymentBaseSchema(BaseModel):
+    type: str          # salary / bonus / overtime / night / fine / other
+    amount: int        # в рублях, >0 или <0
+    comment: Optional[str] = None
+
+
+class PaymentCreate(PaymentBaseSchema):
+    pass
+
+
+class PaymentOut(PaymentBaseSchema):
+    id: int
+    employee_id: int
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
 
 
 # ===============================
@@ -577,3 +610,64 @@ def upload_employee_photo(
     db.refresh(emp)
 
     return {"status": "ok", "photo_url": emp.photo_url}
+
+
+# ---------- АДМИН: ПЛАТЕЖИ (КОШЕЛЁК) ----------
+
+@app.get("/api/employees/{emp_id}/payments", response_model=List[PaymentOut])
+def list_payments_for_employee(
+    emp_id: int,
+    db: Session = Depends(get_db),
+    admin: Admin = Depends(require_admin),
+):
+    # проверяем, что сотрудник существует
+    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Сотрудник не найден")
+
+    payments = (
+        db.query(Payment)
+        .filter(Payment.employee_id == emp_id)
+        .order_by(Payment.created_at.desc(), Payment.id.desc())
+        .all()
+    )
+    return payments
+
+
+@app.post("/api/employees/{emp_id}/payments", response_model=PaymentOut)
+def create_payment_for_employee(
+    emp_id: int,
+    payload: PaymentCreate,
+    db: Session = Depends(get_db),
+    admin: Admin = Depends(require_admin),
+):
+    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Сотрудник не найден")
+
+    payment = Payment(
+        employee_id=emp_id,
+        type=payload.type,
+        amount=payload.amount,
+        comment=payload.comment,
+    )
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+
+    return payment
+
+
+@app.delete("/api/payments/{payment_id}")
+def delete_payment(
+    payment_id: int,
+    db: Session = Depends(get_db),
+    admin: Admin = Depends(require_admin),
+):
+    payment = db.query(Payment).filter(Payment.id == payment_id).first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Платёж не найден")
+
+    db.delete(payment)
+    db.commit()
+    return {"status": "deleted", "id": payment_id}
