@@ -16,19 +16,23 @@ body {
 }
 
 .page {
-  max-width: 1200px;
-  margin: 24px auto 40px;
-  padding: 0 16px;
+  width: min(1500px, 100% - 48px);
+  margin: 0 auto;
+  padding: 32px 32px 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 h1 {
-  font-size: 26px;
-  margin: 0 0 6px;
+  font-size: clamp(28px, 4vw, 34px);
+  margin: 4px 0 6px;
+  line-height: 1.2;
 }
 
 .subtitle {
-  margin: 0 0 24px;
-  font-size: 14px;
+  margin: 0 0 8px;
+  font-size: 15px;
   color: #6b7280;
   text-align: center;
 }
@@ -37,47 +41,278 @@ h1 {
 
 .lw-logo-wrapper-page {
   display: flex;
-  justify-content: flex-start;
-  margin-bottom: 12px;
-  font-size: 12px;
-  color: #6b7280;
   align-items: center;
-  gap: 8px;
+  justify-content: flex-start;
 }
 
 .lw-logo-wrapper-page img {
-  height: 40px;
+  height: 52px;
   width: auto;
   user-select: none;
-}
-
-.top-user-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-  color: #6b7280;
-  margin-bottom: 8px;
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,0.08));
 }
 
 .top-user {
   font-size: 12px;
   color: #9ca3af;
+  text-align: right;
 }
 
 .logout-btn-main {
-  padding: 6px 14px;
+  padding: 8px 16px;
   border-radius: 999px;
   border: none;
-  background: #ef4444;
-  color: #fef2f2;
+  background: linear-gradient(135deg, #f87171, #ef4444);
+  color: #fff5f5;
   font-size: 12px;
   cursor: pointer;
-  box-shadow: 0 6px 14px rgba(239, 68, 68, 0.4);
+  box-shadow: 0 10px 20px rgba(239, 68, 68, 0.35);
+  transition: transform .15s ease, box-shadow .15s ease;
 }
 
 .logout-btn-main:active {
   transform: translateY(1px);
+  box-shadow: 0 6px 14px rgba(239, 68, 68, 0.28);
+}
+
+/* ===== Карточка сотрудника (вид) ===== */
+
+.employee-view-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.employee-view {
+  display: flex;
+  gap: 24px;
+  align-items: stretch;
+  grid-column: 1 / -1;
+  width: 100%;
+  justify-content: stretch;
+}
+
+/* Простые табы */
+.tab-button {
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tab-button.tab-active {
+  background: var(--luch-orange-soft1);
+  border-color: #f59e0b;
+  color: #92400e;
+}
+
+/* Карточка сотрудника */
+.employee-card-main {
+  width: 100%;
+  background: linear-gradient(160deg, #ffffff 0%, #f7f9ff 100%);
+  border: 1px solid #e7ebf3;
+  box-shadow: 0 18px 48px rgba(17, 24, 39, 0.08);
+  gap: 18px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.employee-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.employee-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.employee-card-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.2fr);
+  gap: 16px;
+}
+
+.employee-card-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.employee-card-main .section {
+  border: 1px solid #e4e7ee;
+  border-radius: 14px;
+  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+.employee-card-main .section-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: #7c8799;
+  margin-bottom: 12px;
+}
+
+.employee-card-main .section::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, rgba(255, 179, 33, 0.06), rgba(17, 24, 39, 0));
+  pointer-events: none;
+}
+
+.employee-card-main .section > * {
+  position: relative;
+  z-index: 1;
+}
+
+.employee-card-header .employee-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.employee-card-header .employee-position {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.employee-card-actions {
+  gap: 10px;
+}
+
+.employee-card-main .section .field-mini span {
+  color: #9ca3af;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.employee-card-main .section .field-mini div,
+.employee-card-main .section .field-mini input,
+.employee-card-main .section .field-mini textarea {
+  color: #0f172a;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.employee-card-main input.input-mini,
+.employee-card-main textarea.textarea-mini {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  font-size: 14px;
+}
+
+.employee-card-main input.input-mini:focus,
+.employee-card-main textarea.textarea-mini:focus {
+  border-color: #ffb321;
+  box-shadow:
+    0 0 0 1px rgba(255, 179, 33, .45),
+    0 10px 22px rgba(15, 23, 42, .08);
+}
+
+.history-list li {
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  font-size: 13px;
+}
+
+.history-list li strong {
+  color: #0f172a;
+}
+
+.history-empty {
+  background: #fff7df;
+  border-color: #fed7aa;
+  color: #92400e;
+}
+
+/* Компактные поля/textarea */
+.field-mini span {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  font-size: 10px;
+  color: #6b7280;
+}
+
+.field-mini div {
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+.input-mini,
+.textarea-mini {
+  width: 100%;
+  margin-top: 4px;
+  font-size: 13px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.input-mini:disabled,
+.textarea-mini:disabled {
+  background: #f9fafb;
+  color: #6b7280;
+}
+
+/* История изменений */
+.history-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+  font-size: 12px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.history-list li {
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  margin-bottom: 6px;
+}
+
+.history-list li:last-child {
+  margin-bottom: 0;
+}
+
+.history-empty {
+  border-style: dashed;
+  text-align: center;
+  color: #9ca3af;
+}
+
+/* Адаптив для узких экранов */
+@media (max-width: 900px) {
+  .employee-view {
+    flex-direction: column;
+  }
+
+  .employee-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .employee-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 @media (max-width: 900px) {
@@ -90,25 +325,62 @@ h1 {
 
 header {
   position: relative;
-  display: flex;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
+  gap: 16px;
   margin-bottom: 24px;
-  padding: 14px 18px;
-  background: #ffffff;
-  border-radius: 18px;
-  box-shadow: 0 14px 35px rgba(15, 23, 42, 0.09);
+  padding: 18px 22px;
+  background: linear-gradient(145deg, #ffffff 70%, #fff7df);
+  border-radius: 22px;
+  box-shadow: 0 22px 55px rgba(15, 23, 42, 0.12);
+  width: 100%;
+  max-width: 1200px;
+}
+
+.header-left {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .header-text {
   text-align: center;
   width: 100%;
-  max-width: 420px;
+  max-width: 520px;
+  margin: 0 auto;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+}
+
+.header-title-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.header-kicker {
+  font-size: 12px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: #94a3b8;
 }
 
 /* Десктопный заголовок */
 .header-desktop {
-  display: block;
+  display: flex;
+  justify-content: center;
+  width: 100%;
 }
 
 /* Карточка баланса в шапке (мобильная) */
@@ -164,9 +436,15 @@ header {
 
 @media (max-width: 900px) {
   header {
+    grid-template-columns: 1fr;
     padding: 0;
     background: transparent;
     box-shadow: none;
+  }
+
+  .header-left,
+  .header-right {
+    justify-content: center;
   }
 
   .header-desktop {
@@ -178,7 +456,7 @@ header {
   }
 
   .mobile-logout-wrapper {
-    display: block;
+    display: none;
   }
 }
 
@@ -236,11 +514,12 @@ header {
 }
 
 .card-title {
-  font-size: 12px;
+  font-size: 13px;
   text-transform: uppercase;
-  letter-spacing: .18em;
-  color: #9ca3af;
-  margin-bottom: 8px;
+  letter-spacing: .16em;
+  color: #7c8799;
+  margin-bottom: 10px;
+  font-weight: 700;
 }
 
 .card-accent .card-title {
@@ -249,14 +528,15 @@ header {
 
 .salary {
   font-size: 24px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .list {
   margin: 6px 0 0;
   padding-left: 18px;
-  font-size: 13px;
-  color: #374151;
+  font-size: 14px;
+  color: #1f2937;
+  font-weight: 600;
 }
 
 /* ЛЕВАЯ КОЛОНКА (карточка сотрудника) */
@@ -284,24 +564,29 @@ header {
 }
 
 .name-block-main {
-  font-size: 17px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .name-block-sub {
-  font-size: 13px;
+  font-size: 14px;
   color: #6b7280;
   margin-top: 2px;
 }
 
 .status-row {
   margin-top: 10px;
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .status-label {
-  color: #9ca3af;
+  color: #94a3b8;
   margin-right: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 12px;
 }
 
 .error-text {
@@ -328,13 +613,13 @@ header {
 }
 
 .income-title {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .income-subtitle {
-  font-size: 11px;
-  color: #9ca3af;
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .income-filters {
@@ -348,7 +633,7 @@ header {
 .income-filters select {
   border-radius: 999px;
   border: 1px solid #d1d5db;
-  font-size: 11px;
+  font-size: 12px;
   padding: 2px 8px;
   background: #ffffff;
   outline: none;
@@ -388,8 +673,8 @@ header {
   top: -18px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 10px;
-  color: #6b7280;
+  font-size: 11px;
+  color: #374151;
   white-space: nowrap;
 }
 
@@ -401,45 +686,52 @@ header {
 /* ЛОГИН-ЭКРАН */
 
 .login-overlay {
-  max-width: 420px;
-  margin: 40px auto 0;
-  padding: 0 16px;
+  max-width: 440px;
+  margin: 48px auto 32px;
+  padding: 0 18px;
 }
 
 .login-card {
-  border-radius: 18px;
-  background: #ffffff;
-  padding: 20px 22px 22px;
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.14);
+  border-radius: 22px;
+  background: radial-gradient(120% 140% at 0% 0%, rgba(255, 236, 200, 0.24), transparent),
+              #ffffff;
+  padding: 24px 24px 26px;
+  box-shadow:
+    0 24px 60px rgba(15, 23, 42, 0.18),
+    0 8px 20px rgba(15, 23, 42, 0.12);
   position: relative;
+  border: 1px solid #eef2f7;
 }
 
 .login-card h2 {
-  margin: 0 0 4px;
-  font-size: 20px;
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+  padding-right: 120px; /* место под лого справа */
 }
 
 .login-card p {
   margin: 0 0 16px;
-  font-size: 13px;
-  color: #6b7280;
+  font-size: 14px;
+  color: #475569;
 }
 
 .login-logo {
   position: absolute;
   right: 18px;
-  top: 16px;
+  top: 12px;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
 .login-logo img {
-  height: 26px;
-  border-radius: 8px;
+  height: 28px;
+  border-radius: 10px;
   background: #ffffff;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-  padding: 2px 5px;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.16);
+  padding: 3px 6px;
 }
 
 .field {
@@ -448,12 +740,12 @@ header {
 
 .field label {
   display: block;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 4px;
-  color: #6b7280;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+  color: #94a3b8;
 }
 
 .field input,
@@ -463,7 +755,7 @@ header {
   padding: 9px 11px;
   border-radius: 10px;
   border: 1px solid #e5e7eb;
-  font-size: 13px;
+  font-size: 14px;
   outline: none;
   background: #f9fafb;
   resize: vertical;
@@ -493,16 +785,19 @@ header {
 
 .btn-primary {
   width: 100%;
-  margin-top: 14px;
-  padding: 10px 12px;
-  border-radius: 999px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 14px;
   border: none;
-  background: linear-gradient(135deg, #ffbf24, #f59e0b);
+  background: linear-gradient(120deg, #ffb321, #f97316);
   color: #111827;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
-  box-shadow: 0 8px 18px rgba(245, 158, 11, 0.45);
+  box-shadow:
+    0 12px 24px rgba(249, 115, 22, 0.35),
+    0 4px 10px rgba(249, 115, 22, 0.2);
+  transition: transform .15s ease, box-shadow .15s ease;
 }
 
 .btn-primary:active {
@@ -517,16 +812,17 @@ header {
 }
 
 .small-note {
-  margin-top: 8px;
-  font-size: 11px;
-  color: #9ca3af;
+  margin-top: 10px;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.4;
 }
 
 /* АДМИН-ПАНЕЛЬ */
 
 .admin-layout {
-  margin-top: 12px;
-  display: none;
+  max-width: 1400px;
+  margin: 24px auto 40px;
 }
 
 .admin-grid {
@@ -869,6 +1165,103 @@ header {
     flex-direction: column;
   }
 }
+
+/* --- Мобильные правки --- */
+@media (max-width: 640px) {
+  .page {
+    width: 100%;
+    padding: 16px 14px 26px;
+  }
+
+  header {
+    padding: 0;
+    gap: 10px;
+    box-shadow: none;
+    background: transparent;
+  }
+
+  .lw-logo-wrapper-page img {
+    height: 38px;
+  }
+
+  .employee-view-toggle {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .tab-button {
+    flex: 1 1 0;
+    text-align: center;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  #employee-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-top: 20px;
+  }
+
+  .employee-view {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .employee-card-main {
+    padding: 18px;
+  }
+
+  .employee-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .employee-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .employee-card-main .section {
+    padding: 14px;
+  }
+
+  .income-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .income-filters {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  .income-chart {
+    height: 80px;
+  }
+
+  .card-light,
+  .card {
+    padding: 18px 16px;
+  }
+
+  .card-title {
+    letter-spacing: .14em;
+  }
+
+  .info-card {
+    width: 100%;
+  }
+
+  .info-modal__card {
+    width: 100%;
+  }
+
+  .history-list {
+    max-height: 180px;
+  }
+}
 /* Попап с деталями по месяцу под графиком */
 .month-popup {
   margin-top: 10px;
@@ -894,4 +1287,124 @@ header {
 
 .month-popup-row span:first-child {
   color: #6b7280;
+}
+.nav-pill-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: inherit;
+}
+
+.nav-pill-link:hover {
+  text-decoration: none;
+}
+/* Сам кошелёк — две колонки: левая большая, правая узкая */
+#employee-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1.2fr);
+  gap: 24px;
+  margin: 36px auto 0;
+  width: 100%;
+  max-width: 1200px;
+}
+
+#employee-wallet-view {
+  width: 100%;
+  grid-column: 1 / -1;
+}
+
+#employee-wallet-view .card,
+#employee-wallet-view .card-light {
+  width: 100%;
+}
+
+/* Вертикальная плашка "Кошелёк / Карточка сотрудника" слева больше не нужна,
+   она только съедает ширину — убираем её, чтобы кошелёк занял весь экран. */
+.nav-rail {
+  display: none;
+}
+
+
+/* Info cards modal */
+.info-card.clickable {
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.info-card.clickable:hover,
+.info-card.clickable:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 34px rgba(249, 115, 22, 0.25);
+  outline: none;
+}
+
+.card-accent.info-card {
+  color: #1f2937;
+}
+
+#main-employee-card {
+  width: 100%;
+}
+
+.info-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 80;
+  padding: 16px;
+}
+
+.info-modal.open {
+  display: flex;
+}
+
+.info-modal__card {
+  width: min(520px, 100%);
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.35);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.info-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-weight: 600;
+}
+
+.info-modal__close {
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  cursor: pointer;
+  color: #6b7280;
+}
+
+.info-modal__body {
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.5;
+}
+
+.info-modal__body ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.info-modal__body p {
+  margin: 0 0 8px;
+}
+
+.info-modal__lead {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 6px;
 }

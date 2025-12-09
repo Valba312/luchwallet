@@ -36,13 +36,62 @@ const companyLogoRow = document.getElementById("company-logo-row");
 const headerBalanceValue = document.getElementById("header-balance-value");
 const mobileBalanceHeader = document.getElementById("mobile-balance-header");
 const headerDesktop = document.querySelector(".header-desktop");
+const employeeViewToggle = document.querySelector(".employee-view-toggle");
 const cardSalary = document.getElementById("card-salary");
 const empSalaryCard = document.getElementById("emp-salary-card");
 const empHoursDuplicate = document.getElementById("emp-hours-duplicate");
 const empHoursDetailDuplicate = document.getElementById("emp-hours-detail-duplicate");
+const cardHoursCard = document.getElementById("card-hours");
+const cardPenaltiesCard = document.getElementById("card-penalties");
+const cardAbsencesCard = document.getElementById("card-absences");
 
+const infoModal = document.getElementById("info-modal");
+const infoModalTitle = document.getElementById("info-modal-title");
+const infoModalBody = document.getElementById("info-modal-body");
+const infoModalClose = document.getElementById("info-modal-close");
+
+// Лэйауты
 const employeeLayout = document.getElementById("employee-layout");
 const adminLayout = document.getElementById("admin-layout");
+
+// Виды сотрудника (кошелёк / карточка)
+const employeeWalletView = document.getElementById("employee-wallet-view");
+const employeeCardView = document.getElementById("employee-card-view");
+
+function updateHeaderByView(view) {
+  const isCard = view === "card";
+  if (pageTitle) pageTitle.textContent = isCard ? "Карточка сотрудника" : "Кошелёк сотрудника";
+  if (pageSubtitle) {
+    pageSubtitle.textContent = isCard
+      ? "Профиль, должность и статусы."
+      : "Всё о зарплате, времени и дисциплине.";
+  }
+  if (mobileBalanceHeader) {
+    mobileBalanceHeader.style.display = isCard ? "none" : "flex";
+  }
+}
+
+// Элементы карточки сотрудника (самообслуживание)
+const cardFullName = document.getElementById("card-fullname");
+const cardPosition = document.getElementById("card-position");
+const cardDepartment = document.getElementById("card-department");
+const cardWarehouse = document.getElementById("card-warehouse");
+const cardShiftRole = document.getElementById("card-shift-role");
+const cardRate = document.getElementById("card-rate");
+const cardExperience = document.getElementById("card-experience");
+const cardSchedule = document.getElementById("card-schedule");
+const cardCurrentStatus = document.getElementById("card-current-status");
+const cardLastStatusChange = document.getElementById("card-last-status-change");
+
+const cardStatusInput = document.getElementById("card-status-input");
+const cardResponsibilitiesInput = document.getElementById("card-responsibilities-input");
+const cardSkillsInput = document.getElementById("card-skills-input");
+const cardRolesInput = document.getElementById("card-roles-input");
+const cardHistoryList = document.getElementById("card-history-list");
+const cardModeTag = document.getElementById("card-mode-tag");
+const cardEditBtn = document.getElementById("card-edit-btn");
+const cardSaveBtn = document.getElementById("card-save-btn");
+const cardCancelBtn = document.getElementById("card-cancel-btn");
 
 const logoutBtn = document.getElementById("logout-btn");
 const adminLogoutBtn = document.getElementById("admin-logout-btn");
@@ -111,7 +160,7 @@ const monthPopupAbsences = document.getElementById("month-popup-absences");
 const incomeActiveLabel = document.getElementById("income-active-label");
 const incomeMonthSelect = document.getElementById("income-month-select");
 const incomeYearSelect = document.getElementById("income-year-select");
-const incomeActiveDefault = incomeActiveLabel.textContent || "—";
+const incomeActiveDefault = incomeActiveLabel ? incomeActiveLabel.textContent : "—";
 
 // Анимация карточек справа
 const infoCards = document.querySelectorAll(".info-card");
@@ -120,11 +169,19 @@ const mainEmployeeCard = document.getElementById("main-employee-card");
 // coarse pointer check (мобилки)
 const isCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
 
+// Переключение видов сотрудника (если есть табы)
+const btnViewWallet = document.getElementById("btn-view-wallet");
+const btnViewCard = document.getElementById("btn-view-card");
+
 let adminAuth = null;       // { login, password }
 let adminCurrentId = null;  // id выбранного сотрудника (null = новый)
 let currentEmployeeMonths = []; // массив месяцев с бэка
 let employeeAuth = null;    // { login, password } для сотрудника
 let currentEmployeeId = null;
+
+// ===============================
+//          ВСПОМОГАТЕЛЬНЫЕ
+// ===============================
 
 function formatRub(num) {
   if (num == null) return "—";
@@ -141,28 +198,280 @@ function monthNameRu(index) {
 }
 
 function showLogin() {
-  walletPage.style.display = "none";
-  loginBlock.style.display = "block";
-  loginError.style.display = "none";
+  if (walletPage) walletPage.style.display = "none";
+  if (loginBlock) {
+    loginBlock.style.display = "block";
+    loginError.style.display = "none";
+  }
 }
 function showApp() {
-  loginBlock.style.display = "none";
-  walletPage.style.display = "block";
+  if (loginBlock) loginBlock.style.display = "none";
+  if (walletPage) walletPage.style.display = "block";
 }
 
 function switchToEmployeeView() {
-  employeeLayout.style.display = "grid";
-  adminLayout.style.display = "none";
-  pageTitle.textContent = "Кошелёк сотрудника";
-  pageSubtitle.textContent = "Всё о зарплате, времени и дисциплине.";
+  if (employeeLayout) {
+    employeeLayout.style.display = "grid";     // кошелёк сотрудника на странице
+  }
+  if (adminLayout) {
+    adminLayout.style.display = "none";        // админка скрыта
+  }
+
+  updateHeaderByView("wallet");
+
+  // в режиме сотрудника всё как в витрине сервиса
   if (companyLogoRow) companyLogoRow.style.display = "flex";
+  if (headerDesktop) headerDesktop.style.display = "flex";
+  if (mobileBalanceHeader && mobileBalanceHeader.style.display !== "none") mobileBalanceHeader.style.display = "flex";
+  if (employeeViewToggle) employeeViewToggle.style.display = "flex";
 }
 
+function switchEmployeeView(view) {
+  // Если на странице нет вообще блоков видов — просто выходим
+  if (!employeeWalletView && !employeeCardView) return;
+
+  if (view === "card" && employeeCardView) {
+    if (employeeWalletView) employeeWalletView.style.display = "none";
+    employeeCardView.style.display = "flex";
+    if (btnViewCard) btnViewCard.classList.add("tab-active");
+    if (btnViewWallet) btnViewWallet.classList.remove("tab-active");
+
+    // При переходе на карточку — подгружаем данные из API
+    loadEmployeeCardSelf();
+    updateHeaderByView("card");
+  } else {
+    if (employeeWalletView) employeeWalletView.style.display = "flex";
+    if (employeeCardView) employeeCardView.style.display = "none";
+    if (btnViewWallet) btnViewWallet.classList.add("tab-active");
+    if (btnViewCard) btnViewCard.classList.remove("tab-active");
+    updateHeaderByView("wallet");
+  }
+}
+
+function splitLines(value) {
+  if (!value) return [];
+  return value
+    .split(/\r?\n/)
+    .map(v => v.trim())
+    .filter(Boolean);
+}
+
+function openInfoModal(title, html) {
+  if (!infoModal || !infoModalBody || !infoModalTitle) return;
+  infoModalTitle.textContent = title;
+  infoModalBody.innerHTML = html;
+  infoModal.classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+function closeInfoModal() {
+  if (!infoModal) return;
+  infoModal.classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+function buildListHtml(listEl, emptyText) {
+  if (!listEl || !listEl.children.length) {
+    return `<p>${emptyText}</p>`;
+  }
+  const items = Array.from(listEl.children).map(li => `<li>${li.textContent}</li>`).join("");
+  return `<ul>${items}</ul>`;
+}
+
+function attachCardModal(cardEl, handler) {
+  if (!cardEl) return;
+  cardEl.addEventListener("click", handler);
+  cardEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handler();
+    }
+  });
+}
+
+// ===============================
+//   КАРТОЧКА СОТРУДНИКА (self)
+// ===============================
+
+function setEmployeeCardMode(mode) {
+  const isEdit = mode === "edit";
+
+  if (cardModeTag) cardModeTag.textContent = isEdit ? "Редактирование" : "Просмотр";
+
+  [cardStatusInput, cardResponsibilitiesInput, cardSkillsInput, cardRolesInput].forEach(el => {
+    if (!el) return;
+    el.disabled = !isEdit;
+  });
+
+  if (cardEditBtn) cardEditBtn.style.display = isEdit ? "none" : "inline-flex";
+  if (cardSaveBtn) cardSaveBtn.style.display = isEdit ? "inline-flex" : "none";
+  if (cardCancelBtn) cardCancelBtn.style.display = isEdit ? "inline-flex" : "none";
+}
+
+function renderEmployeeCardHistory(history) {
+  if (!cardHistoryList) return;
+
+  cardHistoryList.innerHTML = "";
+
+  if (!history || history.length === 0) {
+    const li = document.createElement("li");
+    li.className = "history-empty";
+    li.textContent = "Изменения пока не зафиксированы";
+    cardHistoryList.appendChild(li);
+    return;
+  }
+
+  history
+    .slice()
+    .reverse()
+    .forEach(item => {
+      const li = document.createElement("li");
+      const ts = item.timestamp || "";
+      const field = item.field || "";
+      const oldVal = item.old ?? "—";
+      const newVal = item.new ?? "—";
+
+      li.innerHTML =
+        `<div><strong>${ts}</strong></div>` +
+        `<div>Поле: <strong>${field}</strong></div>` +
+        `<div>Было: ${oldVal}</div>` +
+        `<div>Стало: ${newVal}</div>`;
+
+      cardHistoryList.appendChild(li);
+    });
+}
+
+function applyEmployeeCard(card) {
+  if (!card) return;
+
+  if (cardFullName) cardFullName.textContent = card.full_name || card.name || "";
+  if (cardPosition) cardPosition.textContent = card.position || "";
+  if (cardDepartment) cardDepartment.textContent = card.department || "—";
+  if (cardWarehouse) cardWarehouse.textContent = card.warehouse || "—";
+  if (cardShiftRole) cardShiftRole.textContent = card.shift_role || "—";
+  if (cardRate) cardRate.textContent = card.rate || "—";
+  if (cardExperience) cardExperience.textContent = card.experience || "—";
+
+  if (cardSchedule) {
+    cardSchedule.textContent = "По данным системы";
+  }
+  if (cardCurrentStatus) cardCurrentStatus.textContent = card.status || "—";
+  if (cardStatusInput) cardStatusInput.value = card.status || "";
+
+  if (cardLastStatusChange) {
+    const lastHistory = (card.history || []).slice(-1)[0];
+    cardLastStatusChange.textContent = lastHistory?.timestamp || "—";
+  }
+
+  if (cardResponsibilitiesInput) {
+    cardResponsibilitiesInput.value = (card.responsibilities || []).join("\n");
+  }
+  if (cardSkillsInput) {
+    cardSkillsInput.value = (card.skills || []).join("\n");
+  }
+  if (cardRolesInput) {
+    cardRolesInput.value = (card.roles || []).join("\n");
+  }
+
+  renderEmployeeCardHistory(card.history || []);
+  setEmployeeCardMode("view");
+}
+
+async function loadEmployeeCardSelf() {
+  if (!employeeAuth || !employeeAuth.login || !employeeAuth.password) return;
+
+  try {
+    const resp = await fetch(`${API_BASE}/api/employee/card`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        login: employeeAuth.login,
+        password: employeeAuth.password,
+      }),
+    });
+
+    if (!resp.ok) {
+      console.error("Не удалось получить карточку сотрудника", await resp.text());
+      return;
+    }
+
+    const card = await resp.json();
+    applyEmployeeCard(card);
+  } catch (e) {
+    console.error("Ошибка загрузки карточки сотрудника:", e);
+  }
+}
+
+async function saveEmployeeCard() {
+  if (!employeeAuth || !employeeAuth.login || !employeeAuth.password) return;
+
+  const responsibilities = splitLines(cardResponsibilitiesInput?.value || "");
+  const skills = splitLines(cardSkillsInput?.value || "");
+  const roles = splitLines(cardRolesInput?.value || "");
+  const status = (cardStatusInput?.value || "").trim() || null;
+
+  if (cardSaveBtn) cardSaveBtn.disabled = true;
+
+  try {
+    const resp = await fetch(`${API_BASE}/api/employee/card/update`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        login: employeeAuth.login,
+        password: employeeAuth.password,
+        responsibilities,
+        skills,
+        roles,
+        status,
+      }),
+    });
+
+    if (!resp.ok) {
+      console.error("Не удалось сохранить карточку сотрудника", await resp.text());
+      alert("Не удалось сохранить карточку сотрудника");
+      return;
+    }
+
+    const card = await resp.json();
+    applyEmployeeCard(card);
+  } catch (e) {
+    console.error("Ошибка сохранения карточки сотрудника:", e);
+    alert("Ошибка сохранения карточки сотрудника");
+  } finally {
+    if (cardSaveBtn) cardSaveBtn.disabled = false;
+  }
+}
+
+// Обработчики карточки (заработают только на странице, где эти элементы есть)
+if (cardEditBtn) {
+  cardEditBtn.addEventListener("click", () => setEmployeeCardMode("edit"));
+}
+if (cardCancelBtn) {
+  cardCancelBtn.addEventListener("click", () => {
+    setEmployeeCardMode("view");
+    loadEmployeeCardSelf();
+  });
+}
+if (cardSaveBtn) {
+  cardSaveBtn.addEventListener("click", saveEmployeeCard);
+}
+
+if (btnViewWallet && btnViewCard) {
+  btnViewWallet.addEventListener("click", () => switchEmployeeView("wallet"));
+  btnViewCard.addEventListener("click", () => switchEmployeeView("card"));
+}
+
+// ===============================
+//   ПЕРЕКЛЮЧЕНИЕ НА АДМИН-ПАНЕЛЬ
+// ===============================
+
 function switchToAdminView() {
+  // сам кошелёк сотрудника полностью убираем
   if (employeeLayout) {
     employeeLayout.style.display = "none";
   }
 
+  // показываем только админку
   if (adminLayout) {
     adminLayout.style.display = "block";
     adminLayout.style.border = "none";
@@ -171,15 +480,23 @@ function switchToAdminView() {
   }
 
   pageTitle.textContent = "Панель администратора";
-  pageSubtitle.textContent = "Управление сотрудниками, начислениями и штрафами.";
+  pageSubtitle.textContent = "Управление сотрудниками, начислениями и дисциплиной.";
 
-  if (companyLogoRow) companyLogoRow.style.display = "none";
+  // логотип в шапке оставляем
+  if (companyLogoRow) companyLogoRow.style.display = "flex";
 
-  if (headerDesktop) headerDesktop.style.display = "block";
+  // текстовый заголовок остаётся, а «баланс» из шапки полностью прячем
+  if (headerDesktop) headerDesktop.style.display = "flex";
   if (mobileBalanceHeader) mobileBalanceHeader.style.display = "none";
+  if (employeeViewToggle) employeeViewToggle.style.display = "none";
+  if (cardSalary) cardSalary.style.display = "none";   // запасной вариант, если ты показываешь карточку баланса
 
   showApp();
 }
+
+// ===============================
+//          LOGOUT / LOGIN
+// ===============================
 
 function doLogout() {
   localStorage.removeItem("lw_user");
@@ -295,8 +612,8 @@ function renderIncomeChart() {
   incomeChart.innerHTML = "";
 
   if (!currentEmployeeMonths || currentEmployeeMonths.length === 0) {
-    incomeActiveLabel.textContent = "—";
-    monthPopup.style.display = "none";
+    if (incomeActiveLabel) incomeActiveLabel.textContent = "—";
+    if (monthPopup) monthPopup.style.display = "none";
     return;
   }
 
@@ -313,8 +630,8 @@ function renderIncomeChart() {
 
   const visible = currentEmployeeMonths.slice(startIndex, startIndex + 6);
   if (!visible.length) {
-    incomeActiveLabel.textContent = "—";
-    monthPopup.style.display = "none";
+    if (incomeActiveLabel) incomeActiveLabel.textContent = "—";
+    if (monthPopup) monthPopup.style.display = "none";
     return;
   }
 
@@ -336,7 +653,7 @@ function renderIncomeChart() {
   });
 
   const lastMonth = visible[visible.length - 1];
-  incomeActiveLabel.textContent = lastMonth.fullName;
+  if (incomeActiveLabel) incomeActiveLabel.textContent = lastMonth.fullName;
   const lastBar = incomeChart.lastElementChild;
   showMonthPopup(lastMonth, lastBar, false);
 }
@@ -464,6 +781,8 @@ function applyEmployee(user, login) {
   renderIncomeChart();
   switchToEmployeeView();
   showApp();
+  // На странице кошелька показываем только кошелёк
+  switchEmployeeView("card");
 }
 
 // ===============================
@@ -474,7 +793,9 @@ function openBalanceHistory() {
   if (!employeeAuth || !currentEmployeeId) return;
   balanceHistoryOverlay.style.display = "flex";
 
-  const label = incomeActiveLabel.textContent || incomeActiveDefault || "месяц";
+  const label = incomeActiveLabel
+    ? incomeActiveLabel.textContent || incomeActiveDefault || "месяц"
+    : "месяц";
   balanceHistoryMonthLabel.textContent = label;
 
   balanceHistoryBody.innerHTML =
@@ -588,9 +909,9 @@ function digitsOnlyInput(e) {
   e.target.value = digits;
 }
 
-admRate.addEventListener("input", digitsOnlyInput);
-admSalary.addEventListener("input", digitsOnlyInput);
-admHours.addEventListener("input", digitsOnlyInput);
+if (admRate) admRate.addEventListener("input", digitsOnlyInput);
+if (admSalary) admSalary.addEventListener("input", digitsOnlyInput);
+if (admHours) admHours.addEventListener("input", digitsOnlyInput);
 
 function updateHoursDetail() {
   if (!admHoursDetail) return;
@@ -652,6 +973,8 @@ if (admPhotoUploadBtn && admPhotoFile) {
 }
 
 function clearAdminForm() {
+  if (!admLogin) return; // если формы нет на странице
+
   admLogin.value = "";
   admPassword.value = "";
   admInitials.value = "";
@@ -684,17 +1007,21 @@ function clearPaymentsUI(message) {
     `<tr><td colspan="5" class="admin-table-empty">${message || "Нет операций"}</td></tr>`;
 }
 
-adminNewBtn.addEventListener("click", () => {
-  adminCurrentId = null;
-  clearAdminForm();
-  clearPaymentsUI("Выберите сотрудника");
-  adminFormTitle.textContent = "Новый сотрудник";
-  adminFormMode.textContent = "создание";
-});
+if (adminNewBtn) {
+  adminNewBtn.addEventListener("click", () => {
+    adminCurrentId = null;
+    clearAdminForm();
+    clearPaymentsUI("Выберите сотрудника");
+    adminFormTitle.textContent = "Новый сотрудник";
+    adminFormMode.textContent = "создание";
+  });
+}
 
-adminRefreshBtn.addEventListener("click", () => {
-  loadEmployees();
-});
+if (adminRefreshBtn) {
+  adminRefreshBtn.addEventListener("click", () => {
+    loadEmployees();
+  });
+}
 
 function parseHoursDetail(str) {
   const res = { overtime: 0, night: 0 };
@@ -726,162 +1053,168 @@ function parsePenalties(list) {
 }
 
 // Сохранение сотрудника
-adminSaveBtn.addEventListener("click", async () => {
-  if (!adminAuth) return;
+if (adminSaveBtn) {
+  adminSaveBtn.addEventListener("click", async () => {
+    if (!adminAuth) return;
 
-  updateHoursDetail();
+    updateHoursDetail();
 
-  const rateNum = admRate.value.trim();
-  const salaryNum = admSalary.value.trim();
-  const hoursNum = admHours.value.trim();
-  const shiftRateNum = admShiftRate.value.trim();
+    const rateNum = admRate.value.trim();
+    const salaryNum = admSalary.value.trim();
+    const hoursNum = admHours.value.trim();
+    const shiftRateNum = admShiftRate.value.trim();
 
-  const fines = parseInt(admFinesCount.value || "0", 10) || 0;
-  const absents = parseInt(admAbsentCount.value || "0", 10) || 0;
-  const penComment = (admPenaltyComment.value || "").trim();
+    const fines = parseInt(admFinesCount.value || "0", 10) || 0;
+    const absents = parseInt(admAbsentCount.value || "0", 10) || 0;
+    const penComment = (admPenaltyComment.value || "").trim();
 
-  const penaltiesArr = [];
-  penaltiesArr.push(`Штрафов: ${fines || 0}`);
-  penaltiesArr.push(`Прогулы: ${absents || 0}`);
-  if (penComment) penaltiesArr.push(`Замечания: ${penComment}`);
+    const penaltiesArr = [];
+    penaltiesArr.push(`Штрафов: ${fines || 0}`);
+    penaltiesArr.push(`Прогулы: ${absents || 0}`);
+    if (penComment) penaltiesArr.push(`Замечания: ${penComment}`);
 
-  const payloadBase = {
-    login: admLogin.value.trim().toLowerCase(),
-    initials: admInitials.value.trim(),
-    name: admName.value.trim(),
-    position: admPosition.value.trim(),
-    rate: rateNum,
-    experience: admExperience.value.trim(),
-    status: admStatus.value.trim(),
-    salary: salaryNum,
-    hours: hoursNum,
-    hours_detail: admHoursDetail.value.trim(),
-    penalties: penaltiesArr,
-    absences: textareaToList(admAbsences.value),
-    error_text: admErrorText.value.trim(),
-    photo_url: admPhotoUrl.value.trim(),
-    warehouse: admWarehouse ? admWarehouse.value.trim() : "",
-    shift_role: admShiftRole ? admShiftRole.value : "",
-    on_shift: admOnShift ? admOnShift.checked : false,
-    shift_rate: shiftRateNum ? parseInt(shiftRateNum, 10) : null,
-  };
+    const payloadBase = {
+      login: admLogin.value.trim().toLowerCase(),
+      initials: admInitials.value.trim(),
+      name: admName.value.trim(),
+      position: admPosition.value.trim(),
+      rate: rateNum,
+      experience: admExperience.value.trim(),
+      status: admStatus.value.trim(),
+      salary: salaryNum,
+      hours: hoursNum,
+      hours_detail: admHoursDetail.value.trim(),
+      penalties: penaltiesArr,
+      absences: textareaToList(admAbsences.value),
+      error_text: admErrorText.value.trim(),
+      photo_url: admPhotoUrl.value.trim(),
+      warehouse: admWarehouse ? admWarehouse.value.trim() : "",
+      shift_role: admShiftRole ? admShiftRole.value : "",
+      on_shift: admOnShift ? admOnShift.checked : false,
+      shift_rate: shiftRateNum ? parseInt(shiftRateNum, 10) : null,
+    };
 
-  const password = admPassword.value.trim();
-  if (password) {
-    payloadBase.password = password;
-  }
+    const password = admPassword.value.trim();
+    if (password) {
+      payloadBase.password = password;
+    }
 
-  try {
-    let url = `${API_BASE}/api/employees`;
-    let method = "POST";
-    if (adminCurrentId != null) {
-      url = `${API_BASE}/api/employees/${adminCurrentId}`;
-      method = "PUT";
-    } else {
-      if (!payloadBase.login || !password) {
-        alert("Для нового сотрудника обязательно укажите логин и пароль");
+    try {
+      let url = `${API_BASE}/api/employees`;
+      let method = "POST";
+      if (adminCurrentId != null) {
+        url = `${API_BASE}/api/employees/${adminCurrentId}`;
+        method = "PUT";
+      } else {
+        if (!payloadBase.login || !password) {
+          alert("Для нового сотрудника обязательно укажите логин и пароль");
+          return;
+        }
+      }
+
+      const resp = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Login": adminAuth.login,
+          "X-Admin-Password": adminAuth.password,
+        },
+        body: JSON.stringify(payloadBase),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        alert("Ошибка сохранения: " + (err.detail || resp.status));
         return;
       }
+
+      const emp = await resp.json();
+      adminCurrentId = emp.id;
+      alert("Сотрудник сохранён");
+      await loadEmployees();
+    } catch (e) {
+      console.error(e);
+      alert("Ошибка связи с сервером при сохранении");
     }
-
-    const resp = await fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        "X-Admin-Login": adminAuth.login,
-        "X-Admin-Password": adminAuth.password,
-      },
-      body: JSON.stringify(payloadBase),
-    });
-
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      alert("Ошибка сохранения: " + (err.detail || resp.status));
-      return;
-    }
-
-    const emp = await resp.json();
-    adminCurrentId = emp.id;
-    alert("Сотрудник сохранён");
-    await loadEmployees();
-  } catch (e) {
-    console.error(e);
-    alert("Ошибка связи с сервером при сохранении");
-  }
-});
+  });
+}
 
 // Экспорт в Excel
-adminExportBtn.addEventListener("click", async () => {
-  if (!adminAuth || adminCurrentId == null) {
-    alert("Выберите сотрудника для экспорта");
-    return;
-  }
-
-  try {
-    const url = `${API_BASE}/api/employees/${adminCurrentId}/export`;
-
-    const resp = await fetch(url, {
-      method: "GET",
-      headers: {
-        "X-Admin-Login": adminAuth.login,
-        "X-Admin-Password": adminAuth.password,
-      },
-    });
-
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      alert("Ошибка экспорта: " + (err.detail || resp.status));
+if (adminExportBtn) {
+  adminExportBtn.addEventListener("click", async () => {
+    if (!adminAuth || adminCurrentId == null) {
+      alert("Выберите сотрудника для экспорта");
       return;
     }
 
-    const blob = await resp.blob();
-    const downloadUrl = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = downloadUrl;
-    a.download = `employee_${adminCurrentId}_card.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(downloadUrl);
-  } catch (e) {
-    console.error(e);
-    alert("Ошибка связи с сервером при экспорте");
-  }
-});
+    try {
+      const url = `${API_BASE}/api/employees/${adminCurrentId}/export`;
 
-adminDeleteBtn.addEventListener("click", async () => {
-  if (!adminAuth || adminCurrentId == null) {
-    alert("Выберите сотрудника для удаления");
-    return;
-  }
-  if (!confirm("Точно удалить этого сотрудника?")) return;
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: {
+          "X-Admin-Login": adminAuth.login,
+          "X-Admin-Password": adminAuth.password,
+        },
+      });
 
-  try {
-    const resp = await fetch(`${API_BASE}/api/employees/${adminCurrentId}`, {
-      method: "DELETE",
-      headers: {
-        "X-Admin-Login": adminAuth.login,
-        "X-Admin-Password": adminAuth.password,
-      },
-    });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        alert("Ошибка экспорта: " + (err.detail || resp.status));
+        return;
+      }
 
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      alert("Ошибка удаления: " + (err.detail || resp.status));
+      const blob = await resp.blob();
+      const downloadUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = `employee_${adminCurrentId}_card.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(downloadUrl);
+    } catch (e) {
+      console.error(e);
+      alert("Ошибка связи с сервером при экспорте");
+    }
+  });
+}
+
+if (adminDeleteBtn) {
+  adminDeleteBtn.addEventListener("click", async () => {
+    if (!adminAuth || adminCurrentId == null) {
+      alert("Выберите сотрудника для удаления");
       return;
     }
+    if (!confirm("Точно удалить этого сотрудника?")) return;
 
-    adminCurrentId = null;
-    clearAdminForm();
-    clearPaymentsUI("Выберите сотрудника");
-    adminFormTitle.textContent = "Новый сотрудник";
-    adminFormMode.textContent = "создание";
-    loadEmployees();
-  } catch (e) {
-    console.error(e);
-    alert("Ошибка связи с сервером при удалении");
-  }
-});
+    try {
+      const resp = await fetch(`${API_BASE}/api/employees/${adminCurrentId}`, {
+        method: "DELETE",
+        headers: {
+          "X-Admin-Login": adminAuth.login,
+          "X-Admin-Password": adminAuth.password,
+        },
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        alert("Ошибка удаления: " + (err.detail || resp.status));
+        return;
+      }
+
+      adminCurrentId = null;
+      clearAdminForm();
+      clearPaymentsUI("Выберите сотрудника");
+      adminFormTitle.textContent = "Новый сотрудник";
+      adminFormMode.textContent = "создание";
+      loadEmployees();
+    } catch (e) {
+      console.error(e);
+      alert("Ошибка связи с сервером при удалении");
+    }
+  });
+}
 
 async function loadEmployees() {
   if (!adminAuth) return;
@@ -1138,49 +1471,79 @@ async function deletePayment(empId, paymentId) {
   }
 }
 
-payAddBtn.addEventListener("click", async () => {
-  if (!adminAuth || adminCurrentId == null) {
-    alert("Выберите сотрудника");
-    return;
-  }
-
-  const type = payType.value;
-  const amount = parseInt(payAmount.value || "0", 10);
-  const comment = (payComment.value || "").trim();
-
-  if (!amount) {
-    alert("Укажите сумму операции");
-    return;
-  }
-
-  try {
-    const resp = await fetch(`${API_BASE}/api/employees/${adminCurrentId}/payments`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Admin-Login": adminAuth.login,
-        "X-Admin-Password": adminAuth.password,
-      },
-      body: JSON.stringify({ type, amount, comment }),
-    });
-
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      alert("Ошибка добавления операции: " + (err.detail || resp.status));
+if (payAddBtn) {
+  payAddBtn.addEventListener("click", async () => {
+    if (!adminAuth || adminCurrentId == null) {
+      alert("Выберите сотрудника");
       return;
     }
 
-    payAmount.value = "";
-    payComment.value = "";
-    await loadPaymentsForEmployee(adminCurrentId);
-    await loadEmployeeDetails(adminCurrentId);
-  } catch (e) {
-    console.error(e);
-    alert("Ошибка связи с сервером при добавлении операции");
-  }
-});
+    const type = payType.value;
+    const amount = parseInt(payAmount.value || "0", 10);
+    const comment = (payComment.value || "").trim();
+
+    if (!amount) {
+      alert("Укажите сумму операции");
+      return;
+    }
+
+    try {
+      const resp = await fetch(`${API_BASE}/api/employees/${adminCurrentId}/payments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Login": adminAuth.login,
+          "X-Admin-Password": adminAuth.password,
+        },
+        body: JSON.stringify({ type, amount, comment }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        alert("Ошибка добавления операции: " + (err.detail || resp.status));
+        return;
+      }
+
+      payAmount.value = "";
+      payComment.value = "";
+      await loadPaymentsForEmployee(adminCurrentId);
+      await loadEmployeeDetails(adminCurrentId);
+    } catch (e) {
+      console.error(e);
+      alert("Ошибка связи с сервером при добавлении операции");
+    }
+  });
+}
 
 // простая анимация карточек справа
+attachCardModal(cardHoursCard, () => {
+  const hours = (empHoursDuplicate?.textContent || empHours?.textContent || "").trim() || "Нет данных";
+  const detail = (empHoursDetailDuplicate?.textContent || empHoursDetail?.textContent || "").trim();
+  const body = `<p class="info-modal__lead">${hours}</p>` +
+    `<p>${detail || "Подробностей нет"}</p>`;
+  openInfoModal("Отработанное время", body);
+});
+
+attachCardModal(cardPenaltiesCard, () => {
+  const body = buildListHtml(empPenaltiesList, "Штрафов и замечаний нет");
+  openInfoModal("Штрафы и замечания", body);
+});
+
+attachCardModal(cardAbsencesCard, () => {
+  const body = buildListHtml(empAbsenceList, "Отсутствия и опоздания не зафиксированы");
+  openInfoModal("Прогулы и опоздания", body);
+});
+
+if (infoModalClose) infoModalClose.addEventListener("click", closeInfoModal);
+if (infoModal) {
+  infoModal.addEventListener("click", (e) => {
+    if (e.target === infoModal) closeInfoModal();
+  });
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeInfoModal();
+});
+
 const observer = new IntersectionObserver(
   (entries) => {
     entries.forEach((entry) => {

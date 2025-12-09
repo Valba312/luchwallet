@@ -1,0 +1,257 @@
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 40px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  height: 32px;
+}
+
+.topbar-caption {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #9ca3af;
+}
+
+.topbar-main {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.btn-ghost {
+  border-radius: 999px;
+  padding: 6px 14px;
+  border: 1px solid #e5e7eb;
+  font-size: 13px;
+  background: #f9fafb;
+  cursor: pointer;
+  text-decoration: none;
+  color: #111827;
+}
+
+.page {
+  max-width: 1200px;
+  margin: 24px auto;
+  padding: 0 24px 32px;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.07);
+  padding: 20px 22px;
+}
+
+/* Логин */
+
+.login-card {
+  margin-bottom: 16px;
+}
+
+.login-title {
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.login-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.field label {
+  display: block;
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.field input {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  padding: 7px 9px;
+  font-size: 14px;
+}
+
+.btn-primary {
+  border-radius: 999px;
+  border: none;
+  padding: 8px 18px;
+  font-size: 14px;
+  color: #ffffff;
+  background: #f97316;
+  cursor: pointer;
+}
+
+.error-text {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #dc2626;
+}
+
+/* Карточка */
+
+.employee-card {
+  margin-top: 12px;
+}
+
+.employee-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.employee-name {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.employee-position {
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.employee-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.tag {
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+}
+
+.tag-muted {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.btn-small {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.btn-gray {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+.btn-green {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+/* Сетка */
+
+.employee-card-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.3fr);
+  gap: 18px;
+}
+
+.employee-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #9ca3af;
+  margin-bottom: 6px;
+}
+
+.field-mini span {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+.field-mini div {
+  margin-top: 3px;
+  font-size: 13px;
+}
+
+.input-mini,
+.textarea-mini {
+  width: 100%;
+  margin-top: 4px;
+  font-size: 13px;
+  padding: 7px 9px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  resize: vertical;
+}
+
+.input-mini:disabled,
+.textarea-mini:disabled {
+  background: #f9fafb;
+  color: #6b7280;
+}
+
+/* История */
+
+.history-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 12px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.history-list li {
+  padding: 7px 9px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  margin-bottom: 6px;
+}
+
+.history-empty {
+  border-style: dashed;
+  text-align: center;
+  color: #9ca3af;
+}
+
+@media (max-width: 960px) {
+  .login-grid {
+    grid-template-columns: 1fr;
+  }
+  .employee-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

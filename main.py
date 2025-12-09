@@ -1,5 +1,6 @@
 from pathlib import Path
-
+from typing import cast
+from openpyxl.worksheet.worksheet import Worksheet
 from fastapi import FastAPI, Depends, HTTPException, Header, UploadFile, File
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -7,20 +8,25 @@ from datetime import datetime, timedelta
 import io
 import json
 import os
-from typing import List, Optional
+from typing import List, Optional, cast
 from pydantic import BaseModel, Field
 
 from sqlalchemy import (
     create_engine,
-    Column,
-    Integer,
     String,
     Text,
     DateTime,
     Boolean,
+    Integer,
     text,
 )
-from sqlalchemy.orm import sessionmaker, declarative_base, Session
+from sqlalchemy.orm import (
+    sessionmaker,
+    declarative_base,
+    Session,
+    Mapped,
+    mapped_column,
+)
 
 from passlib.context import CryptContext
 from openpyxl import Workbook
@@ -41,6 +47,44 @@ print("USING DB:", DB_PATH)
 
 PHOTOS_DIR = BASE_DIR / "photos"
 os.makedirs(PHOTOS_DIR, exist_ok=True)
+
+# JSON для расширенных данных карточки сотрудника
+EMPLOYEE_CARD_JSON = BASE_DIR / "employee_cards.json"
+
+
+def load_employee_cards() -> dict:
+    """
+    Загружаем дополнительные данные для карточек сотрудников
+    из employee_cards.json.
+
+    Формат файла:
+    {
+      "1": {
+        "responsibilities": [...],
+        "skills": [...],
+        "roles": [...],
+        "history": [
+          { "timestamp": "...", "field": "...", "old": "...", "new": "..." }
+        ]
+      },
+      "2": { ... }
+    }
+    """
+    if not EMPLOYEE_CARD_JSON.exists():
+        return {}
+    try:
+        with EMPLOYEE_CARD_JSON.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_employee_cards(data: dict) -> None:
+    """
+    Сохраняем словарь в employee_cards.json.
+    """
+    with EMPLOYEE_CARD_JSON.open("w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 
 # ===============================
@@ -82,66 +126,72 @@ def get_db():
 class Employee(Base):
     __tablename__ = "employees"
 
-    id = Column(Integer, primary_key=True, index=True)
-    login = Column(String(50), unique=True, index=True, nullable=False)
-    password_hash = Column(String(255), nullable=False)
-    # открытый пароль только для админ-панели по ТЗ
-    password_plain = Column(String(255), nullable=True)
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
 
-    initials = Column(String(8), nullable=False)
-    name = Column(String(255), nullable=False)
-    position = Column(String(255), nullable=False)
+    login: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    # открытый пароль только для админ-панели по ТЗ
+    password_plain: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        default=None,
+)
+
+    initials: Mapped[str] = mapped_column(String(8), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    position: Mapped[str] = mapped_column(String(255), nullable=False)
 
     # Привязка к складу/точке
-    warehouse = Column(String(255), nullable=True)          # например: "Челябинск · Склад №1"
+    warehouse: Mapped[str | None] = mapped_column(String(255), nullable=True)  # "Челябинск · Склад №1"
 
     # Роль на смене
-    shift_role = Column(String(50), nullable=True)          # "receiver" / "loader"
+    shift_role: Mapped[str | None] = mapped_column(String(50), nullable=True)  # "receiver" / "loader"
 
     # Выходит ли на смену сегодня
-    on_shift = Column(Boolean, default=False)
+    on_shift: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Ставка за смену (в рублях)
-    shift_rate = Column(Integer, nullable=True)
+    shift_rate: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    # Оклад
-    rate = Column(String(50), nullable=True)
-    experience = Column(String(50), nullable=True)
-    status = Column(String(100), nullable=True)
+    # Оклад / стаж / статус (как отображаемые строки)
+    rate: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    experience: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    status: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
-    # Отображаемые поля
-    salary = Column(String(50), nullable=True)   # отображаемый баланс (строка)
-    hours = Column(String(50), nullable=True)    # отображаемые часы за месяц
-    hours_detail = Column(String(255), nullable=True)
+    # Отображаемые поля кошелька
+    salary: Mapped[str | None] = mapped_column(String(50), nullable=True)      # "92 430 ₽"
+    hours: Mapped[str | None] = mapped_column(String(50), nullable=True)       # "152 ч"
+    hours_detail: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    penalties_json = Column(Text, nullable=True)
-    absences_json = Column(Text, nullable=True)
+    penalties_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    absences_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    error_text = Column(String(255), nullable=True)
+    error_text: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    photo_url = Column(String(512), nullable=True)
+    photo_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     # === динамический баланс ===
-    balance_int = Column(Integer, nullable=True)               # фактический баланс в рублях
-    contract_hours_per_month = Column(Integer, nullable=True)  # нормочасы в месяц
-    hourly_rate = Column(Integer, nullable=True)               # ₽/час
-    schedule_type = Column(String(50), nullable=True)          # office / None / ...
-    work_start_hour = Column(Integer, nullable=True)           # 0–23
-    work_end_hour = Column(Integer, nullable=True)             # 0–23 (не включая)
-    last_balance_update = Column(DateTime, nullable=True)
+    balance_int: Mapped[int | None] = mapped_column(Integer, nullable=True)              # фактический баланс в рублях
+    contract_hours_per_month: Mapped[int | None] = mapped_column(Integer, nullable=True) # нормочасы в месяц
+    hourly_rate: Mapped[int | None] = mapped_column(Integer, nullable=True)              # ₽/час
+    schedule_type: Mapped[str | None] = mapped_column(String(50), nullable=True)         # "office" / None / ...
 
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    work_start_hour: Mapped[int | None] = mapped_column(Integer, nullable=True)          # 0–23
+    work_end_hour: Mapped[int | None] = mapped_column(Integer, nullable=True)            # 0–23 (не включая)
+    last_balance_update: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class Admin(Base):
     __tablename__ = "admins"
 
-    id = Column(Integer, primary_key=True, index=True)
-    login = Column(String(50), unique=True, index=True, nullable=False)
-    password_hash = Column(String(255), nullable=False)
-    name = Column(String(255), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    login: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class Payment(Base):
@@ -153,12 +203,12 @@ class Payment(Base):
     """
     __tablename__ = "payments"
 
-    id = Column(Integer, primary_key=True, index=True)
-    employee_id = Column(Integer, index=True, nullable=False)
-    type = Column(String(50), nullable=False)  # salary / bonus / overtime / night / fine / other
-    amount = Column(Integer, nullable=False)
-    comment = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    employee_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    type: Mapped[str] = mapped_column(String(50), nullable=False)  # salary / bonus / overtime / night / fine / other
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    comment: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
 
 class EmployeeMonthStat(Base):
@@ -168,21 +218,20 @@ class EmployeeMonthStat(Base):
     """
     __tablename__ = "employee_month_stats"
 
-    id = Column(Integer, primary_key=True, index=True)
-    employee_id = Column(Integer, index=True, nullable=False)
-    year = Column(Integer, nullable=False)
-    month = Column(Integer, nullable=False)  # 1-12
-    month_key = Column(String(8), nullable=False)  # jan, feb, ...
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    employee_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    month: Mapped[int] = mapped_column(Integer, nullable=False)  # 1-12
+    month_key: Mapped[str] = mapped_column(String(8), nullable=False)  # jan, feb, ...
 
-    income = Column(Integer, nullable=False, default=0)  # общий доход за месяц
-    salary = Column(Integer, nullable=True)              # начисленная зарплата
-    hours = Column(Integer, nullable=True)               # отработанные часы
+    income: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # общий доход за месяц
+    salary: Mapped[int | None] = mapped_column(Integer, nullable=True)       # начисленная зарплата
+    hours: Mapped[int | None] = mapped_column(Integer, nullable=True)        # отработанные часы
 
-    penalties_json = Column(Text, nullable=True)         # JSON-список строк
-    absences_json = Column(Text, nullable=True)          # JSON-список строк
+    penalties_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON-список строк
+    absences_json: Mapped[str | None] = mapped_column(Text, nullable=True)   # JSON-список строк
 
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
-
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
 # ===============================
 #         Pydantic-схемы
@@ -219,6 +268,7 @@ class EmployeeBase(BaseModel):
     shift_role: Optional[str] = None     # "receiver" / "loader"
     on_shift: Optional[bool] = False
     shift_rate: Optional[int] = None
+
 
 class EmployeeCreate(EmployeeBase):
     login: str
@@ -260,22 +310,23 @@ class EmployeeShort(BaseModel):
     shift_role: Optional[str] = None
     on_shift: Optional[bool] = False
 
-    password: Optional[str] = Field(None, alias="password_plain")
+    # открытый пароль для админ-панели
+    password_plain: Optional[str] = None
 
     class Config:
         orm_mode = True
-        allow_population_by_field_name = True
 
 
 class EmployeeDetail(EmployeeBase):
     id: int
     login: str
     is_active: bool
-    password: Optional[str] = Field(None, alias="password_plain")
+
+    # открытый пароль для админ-панели
+    password_plain: Optional[str] = None
 
     class Config:
         orm_mode = True
-        allow_population_by_field_name = True
 
 
 class PaymentBaseSchema(BaseModel):
@@ -298,12 +349,56 @@ class PaymentOut(PaymentBaseSchema):
 
 
 class EmployeeSelfPaymentsRequest(BaseModel):
+    """Для /api/employee/payments — история операций по балансу."""
+    login: str
+    password: str
+
+
+class EmployeeSelfCardRequest(BaseModel):
     """
-    Для /api/employee/payments — запрос с логином и паролем сотрудника.
-    (без поля role, как и шлёт фронт)
+    Для /api/employee/card — получение карточки сотрудника
+    по логину и паролю (как для /api/employee/payments).
     """
     login: str
     password: str
+
+
+class EmployeeSelfCardUpdateRequest(BaseModel):
+    """
+    Для /api/employee/card/update — обновление карточки сотрудника
+    самим сотрудником (по логину и паролю).
+    """
+    login: str
+    password: str
+    responsibilities: Optional[List[str]] = None
+    skills: Optional[List[str]] = None
+    roles: Optional[List[str]] = None
+    status: Optional[str] = None
+
+
+class EmployeeCardResponse(BaseModel):
+    """
+    Объединённая карточка сотрудника:
+    - базовые данные из БД
+    - расширенные данные из JSON
+    """
+    id: int
+    full_name: str
+    position: str
+    warehouse: Optional[str] = None
+    status: Optional[str] = None
+    shift_role: Optional[str] = None
+    rate: Optional[str] = None
+    experience: Optional[str] = None
+    photo_url: Optional[str] = None
+
+    responsibilities: List[str] = []
+    skills: List[str] = []
+    roles: List[str] = []
+    history: List[dict] = []
+
+    class Config:
+        orm_mode = True
 
 
 # ===============================
@@ -338,6 +433,29 @@ def int_to_money(value: int) -> str:
     return f"{s} ₽"
 
 
+def build_employee_card(emp: Employee, extra: Optional[dict]) -> EmployeeCardResponse:
+    """
+    Собираем карточку сотрудника из ORM-модели и JSON-дополнения.
+    Используем cast(...) чтобы Pylance не ругался на Column[int]/Column[str].
+    """
+    extra = extra or {}
+    return EmployeeCardResponse(
+        id=cast(int, emp.id),
+        full_name=cast(str, emp.name),
+        position=cast(str, emp.position),
+        warehouse=cast(Optional[str], emp.warehouse),
+        status=cast(Optional[str], emp.status),
+        shift_role=cast(Optional[str], emp.shift_role),
+        rate=cast(Optional[str], emp.rate),
+        experience=cast(Optional[str], emp.experience),
+        photo_url=cast(Optional[str], emp.photo_url),
+        responsibilities=extra.get("responsibilities") or [],
+        skills=extra.get("skills") or [],
+        roles=extra.get("roles") or [],
+        history=extra.get("history") or [],
+    )
+
+
 def is_office_work_time(dt: datetime, start_hour: int, end_hour: int) -> bool:
     """
     Простейшая модель: офисники работают Пн–Пт с start_hour до end_hour (без учёта обеда).
@@ -351,17 +469,22 @@ def is_office_work_time(dt: datetime, start_hour: int, end_hour: int) -> bool:
     return h >= start_hour or h < end_hour
 
 
-def ensure_emp_balance_initialized(emp: Employee):
+
+def ensure_emp_balance_initialized(emp: Employee) -> None:
     """
     Гарантируем, что balance_int и salary синхронизированы.
     """
     if emp.balance_int is None:
         emp.balance_int = money_to_int(emp.salary or "0")
+
+    balance: int = emp.balance_int or 0
+    emp.balance_int = balance
+
     if emp.salary is None:
-        emp.salary = int_to_money(emp.balance_int or 0)
+        emp.salary = int_to_money(balance)
 
 
-def accrue_balance_for_employee(emp: Employee, now: Optional[datetime] = None):
+def accrue_balance_for_employee(emp: Employee, now: Optional[datetime] = None) -> None:
     """
     Обновляет баланс сотрудника в БД по почасовой ставке.
     Для простоты:
@@ -378,7 +501,7 @@ def accrue_balance_for_employee(emp: Employee, now: Optional[datetime] = None):
         now = datetime.utcnow()
 
     # инициализация
-    if not emp.last_balance_update:
+    if emp.last_balance_update is None:
         emp.last_balance_update = now
         ensure_emp_balance_initialized(emp)
         return
@@ -389,14 +512,19 @@ def accrue_balance_for_employee(emp: Employee, now: Optional[datetime] = None):
 
     hours_to_pay = 0
     while cursor + timedelta(hours=1) <= now:
-        if is_office_work_time(cursor, emp.work_start_hour or 8, emp.work_end_hour or 19):
+        start_h = emp.work_start_hour or 8
+        end_h = emp.work_end_hour or 19
+        if is_office_work_time(cursor, start_h, end_h):
             hours_to_pay += 1
         cursor += timedelta(hours=1)
 
     if hours_to_pay > 0:
         ensure_emp_balance_initialized(emp)
-        emp.balance_int += hours_to_pay * emp.hourly_rate
-        emp.salary = int_to_money(emp.balance_int)
+        balance: int = emp.balance_int or 0
+        rate: int = emp.hourly_rate or 0
+        balance += hours_to_pay * rate
+        emp.balance_int = balance
+        emp.salary = int_to_money(balance)
 
     emp.last_balance_update = cursor
 
@@ -406,7 +534,7 @@ MONTH_META = {
     2: {"key": "feb", "short": "Фев", "full": "Февраль"},
     3: {"key": "mar", "short": "Мар", "full": "Март"},
     4: {"key": "apr", "short": "Апр", "full": "Апрель"},
-    5: {"key": "may", "short": "Май", "full": "Май"},
+    5: {"key": "may", "short": "Май", "full": "Июнь"},
     6: {"key": "jun", "short": "Июн", "full": "Июнь"},
     7: {"key": "jul", "short": "Июл", "full": "Июль"},
     8: {"key": "aug", "short": "Авг", "full": "Август"},
@@ -492,7 +620,7 @@ def update_month_stat_on_payment(
     payment_type: str,
     comment: Optional[str] = None,
     reverse: bool = False,
-):
+) -> None:
     """
     Обновляет EmployeeMonthStat при добавлении/удалении платежа.
     amount_diff — сумма платежа (для удаления можно использовать ту же сумму, но reverse=True).
@@ -533,11 +661,12 @@ def update_month_stat_on_payment(
     sign = -1 if reverse else 1
     delta = sign * amount_diff
 
-    stat.income = (stat.income or 0) + delta
+    current_income = stat.income or 0
+    stat.income = current_income + delta
 
-    # немного логики для salary: учитываем только тип "salary" как "зарплату"
     if payment_type == "salary":
-        stat.salary = (stat.salary or 0) + delta
+        current_salary = stat.salary or 0
+        stat.salary = current_salary + delta
 
 
 # ===============================
@@ -1019,7 +1148,7 @@ def get_employee(
         error_text=emp.error_text,
         photo_url=emp.photo_url,
         is_active=emp.is_active,
-        password=emp.password_plain,
+        password_plain=emp.password_plain,
     )
 
 
@@ -1049,25 +1178,25 @@ def create_employee(
         absences_json=json_dumps_list(payload.absences or []),
         error_text=payload.error_text,
         photo_url=payload.photo_url,
-
         warehouse=payload.warehouse,
         shift_role=payload.shift_role,
         on_shift=payload.on_shift,
         shift_rate=payload.shift_rate,
-
         is_active=True,
     )
 
-
     # инициализируем динамический баланс и нормочасы
     emp.balance_int = money_to_int(payload.salary or "0")
+
+    hours_int: int | None
     try:
         hours_int = int("".join(ch for ch in (payload.hours or "") if ch.isdigit()))
     except ValueError:
         hours_int = None
+
     emp.contract_hours_per_month = hours_int
-    if hours_int and hours_int > 0:
-        emp.hourly_rate = emp.balance_int // hours_int
+    if hours_int is not None and hours_int > 0:
+        emp.hourly_rate = (emp.balance_int or 0) // hours_int
     else:
         emp.hourly_rate = None
 
@@ -1128,14 +1257,20 @@ def update_employee(
     # пересчёт баланс_int и нормочасов, если пришли salary/hours
     if payload.salary is not None:
         emp.balance_int = money_to_int(emp.salary)
+
     if payload.hours is not None:
         try:
             hours_int = int("".join(ch for ch in (emp.hours or "") if ch.isdigit()))
         except ValueError:
             hours_int = None
+
         emp.contract_hours_per_month = hours_int
-        if hours_int and hours_int > 0 and emp.balance_int is not None:
-            emp.hourly_rate = emp.balance_int // hours_int
+
+        if hours_int is not None and hours_int > 0:
+            balance_val: int = emp.balance_int or 0
+            emp.hourly_rate = balance_val // hours_int
+        else:
+            emp.hourly_rate = None
 
     db.commit()
     db.refresh(emp)
@@ -1172,8 +1307,9 @@ def upload_employee_photo(
         raise HTTPException(status_code=404, detail="Сотрудник не найден")
 
     ext = ""
-    if "." in file.filename:
-        ext = "." + file.filename.rsplit(".", 1)[-1].lower()
+    filename_src = file.filename or ""
+    if "." in filename_src:
+        ext = "." + filename_src.rsplit(".", 1)[-1].lower()
     filename = f"emp_{employee_id}{ext}"
     filepath = PHOTOS_DIR / filename
 
@@ -1200,7 +1336,7 @@ def export_employee_excel(
         raise HTTPException(status_code=404, detail="Сотрудник не найден")
 
     wb = Workbook()
-    ws = wb.active
+    ws = cast(Worksheet, wb.active)
     ws.title = "Карточка сотрудника"
 
     penalties = json_loads_list(emp.penalties_json)
@@ -1223,7 +1359,7 @@ def export_employee_excel(
 
     row_idx = 1
     for label, value in data_rows:
-        ws.cell(row=row_idx, column=1, value=label)
+        ws.cell(row=row_idx, column=1, value=label) # type: ignore
         ws.cell(row=row_idx, column=2, value=value)
         row_idx += 1
 
@@ -1275,8 +1411,11 @@ def create_payment_for_employee(
         raise HTTPException(status_code=404, detail="Сотрудник не найден")
 
     ensure_emp_balance_initialized(emp)
-    emp.balance_int += payload.amount
-    emp.salary = int_to_money(emp.balance_int)
+    ensure_emp_balance_initialized(emp)
+    balance: int = emp.balance_int or 0
+    balance += payload.amount
+    emp.balance_int = balance
+    emp.salary = int_to_money(balance)
 
     payment = Payment(
         employee_id=employee_id,
@@ -1317,8 +1456,10 @@ def delete_payment_for_employee(
     emp = db.query(Employee).filter(Employee.id == payment.employee_id).first()
     if emp:
         ensure_emp_balance_initialized(emp)
-        emp.balance_int -= payment.amount
-        emp.salary = int_to_money(emp.balance_int)
+        balance: int = emp.balance_int or 0
+        balance -= payment.amount
+        emp.balance_int = balance
+        emp.salary = int_to_money(balance)
 
         update_month_stat_on_payment(
             db=db,
@@ -1363,6 +1504,102 @@ def list_payments_for_employee_self(
     return payments
 
 
+# ---------- СОТРУДНИК: СВОЯ КАРТОЧКА (JSON + БД) ----------
+
+@app.post("/api/employee/card", response_model=EmployeeCardResponse)
+def get_employee_card_self(
+    payload: EmployeeSelfCardRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Сотрудник получает свою карточку по логину и паролю.
+    """
+    login_value = payload.login.strip().lower()
+    emp = (
+        db.query(Employee)
+        .filter(Employee.login == login_value, Employee.is_active == True)
+        .first()
+    )
+    if not emp or not verify_password(payload.password, emp.password_hash):
+        raise HTTPException(status_code=401, detail="Неверный логин или пароль")
+
+    extra_all = load_employee_cards()
+    extra = extra_all.get(str(emp.id)) or {}
+    return build_employee_card(emp, extra)
+
+
+@app.post("/api/employee/card/update", response_model=EmployeeCardResponse)
+def update_employee_card_self(
+    payload: EmployeeSelfCardUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Сотрудник обновляет свою карточку:
+    - обязанности
+    - навыки
+    - роли
+    - статус (при необходимости)
+    """
+    login_value = payload.login.strip().lower()
+    emp = (
+        db.query(Employee)
+        .filter(Employee.login == login_value, Employee.is_active == True)
+        .first()
+    )
+    if not emp or not verify_password(payload.password, emp.password_hash):
+        raise HTTPException(status_code=401, detail="Неверный логин или пароль")
+
+    extra_all = load_employee_cards()
+    extra = extra_all.get(str(emp.id)) or {
+        "responsibilities": [],
+        "skills": [],
+        "roles": [],
+        "history": [],
+    }
+    history = extra.get("history") or []
+
+    now = datetime.utcnow().isoformat(timespec="seconds")
+
+    def add_change(field: str, old, new):
+        if old == new or new is None:
+            return
+        history.append(
+            {
+                "timestamp": now,
+                "field": field,
+                "old": old,
+                "new": new,
+            }
+        )
+
+    # Обновляем JSON-часть
+    if payload.responsibilities is not None:
+        add_change("responsibilities", extra.get("responsibilities"), payload.responsibilities)
+        extra["responsibilities"] = payload.responsibilities
+
+    if payload.skills is not None:
+        add_change("skills", extra.get("skills"), payload.skills)
+        extra["skills"] = payload.skills
+
+    if payload.roles is not None:
+        add_change("roles", extra.get("roles"), payload.roles)
+        extra["roles"] = payload.roles
+
+    # При необходимости — статус в самой БД
+    if payload.status is not None:
+        add_change("status", emp.status, payload.status)
+        emp.status = payload.status
+
+    extra["history"] = history
+    extra_all[str(emp.id)] = extra
+
+    db.commit()
+    db.refresh(emp)
+    save_employee_cards(extra_all)
+
+    return build_employee_card(emp, extra)
+
+
 # ---------- ФРОНТ: КАРТОЧКА СОТРУДНИКА (React/Vite) ----------
 
 @app.get("/card", response_class=HTMLResponse)
@@ -1377,8 +1614,6 @@ def card_page():
             detail="Карточка сотрудника не собрана. В папке card выполни `npm run build`.",
         )
     return HTMLResponse(index_file.read_text(encoding="utf-8"))
-app.mount(
-    "/",  # корень сайта
-    StaticFiles(directory="wallet", html=True),
-    name="wallet",
-)
+
+app.mount("/employee", StaticFiles(directory="employee", html=True), name="employee")
+app.mount("/", StaticFiles(directory="wallet", html=True), name="wallet")

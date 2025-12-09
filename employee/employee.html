@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Карточка сотрудника</title>
+  <link rel="stylesheet" href="employee.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <a href="/" class="logo-link">
+        <img src="/logo.svg" alt="ЛУЧ" class="logo" />
+      </a>
+      <div class="topbar-title">
+        <div class="topbar-caption">Сервис LuchWallet</div>
+        <div class="topbar-main">Карточка сотрудника</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <a href="/" class="btn-ghost">Кошелёк</a>
+    </div>
+  </header>
+
+  <main class="page">
+    <!-- Блок авторизации -->
+    <section class="card login-card" id="login-card">
+      <div class="login-title">Вход в карточку сотрудника</div>
+      <div class="login-grid">
+        <div class="field">
+          <label>Логин</label>
+          <input id="login-input" type="text" autocomplete="username" />
+        </div>
+        <div class="field">
+          <label>Пароль</label>
+          <input id="password-input" type="password" autocomplete="current-password" />
+        </div>
+        <button id="login-btn" class="btn-primary">Войти</button>
+      </div>
+      <div id="login-error" class="error-text"></div>
+    </section>
+
+    <!-- Карточка (основной контент) -->
+    <section class="card employee-card" id="employee-card" style="display:none;">
+      <div class="employee-card-header">
+        <div>
+          <div class="employee-name" id="card-fullname">ФИО</div>
+          <div class="employee-position" id="card-position">Должность</div>
+        </div>
+        <div class="employee-card-actions">
+          <span id="card-mode-tag" class="tag tag-muted">Просмотр</span>
+          <button id="card-edit-btn" class="btn-small btn-gray">Редактировать</button>
+          <button id="card-save-btn" class="btn-small btn-green" style="display:none;">Сохранить</button>
+          <button id="card-cancel-btn" class="btn-small btn-gray" style="display:none;">Отмена</button>
+        </div>
+      </div>
+
+      <div class="employee-card-grid">
+        <!-- Левая колонка -->
+        <div class="employee-column">
+          <div class="section">
+            <div class="section-title">Основные данные</div>
+
+            <div class="field-mini">
+              <span>Подразделение</span>
+              <div id="card-department">—</div>
+            </div>
+
+            <div class="field-mini">
+              <span>Склад / точка</span>
+              <div id="card-warehouse">—</div>
+            </div>
+
+            <div class="field-mini">
+              <span>Роль на смене</span>
+              <div id="card-shift-role">—</div>
+            </div>
+
+            <div class="field-mini">
+              <span>Ставка</span>
+              <div id="card-rate">—</div>
+            </div>
+
+            <div class="field-mini">
+              <span>Стаж</span>
+              <div id="card-experience">—</div>
+            </div>
+
+            <div class="field-mini">
+              <span>Статус</span>
+              <input id="card-status-input" class="input-mini" type="text" disabled />
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Рабочее время</div>
+
+            <div class="field-mini">
+              <span>График</span>
+              <div id="card-schedule">По данным системы</div>
+            </div>
+
+            <div class="field-mini">
+              <span>Текущий статус</span>
+              <div id="card-current-status">—</div>
+            </div>
+
+            <div class="field-mini">
+              <span>Последнее изменение статуса</span>
+              <div id="card-last-status-change">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Правая колонка -->
+        <div class="employee-column">
+          <div class="section">
+            <div class="section-title">Функциональные обязанности</div>
+            <textarea id="card-responsibilities-input"
+                      class="textarea-mini"
+                      rows="4"
+                      disabled
+                      placeholder="Каждая обязанность с новой строки"></textarea>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Навыки</div>
+            <textarea id="card-skills-input"
+                      class="textarea-mini"
+                      rows="3"
+                      disabled
+                      placeholder="Каждый навык с новой строки"></textarea>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Роли</div>
+            <textarea id="card-roles-input"
+                      class="textarea-mini"
+                      rows="3"
+                      disabled
+                      placeholder="Каждая роль с новой строки"></textarea>
+          </div>
+
+          <div class="section">
+            <div class="section-title">История изменений</div>
+            <ul id="card-history-list" class="history-list">
+              <li class="history-empty">Изменения пока не зафиксированы</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="employee.js"></script>
+</body>
+</html>

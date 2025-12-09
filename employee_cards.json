@@ -1,0 +1,66 @@
+{
+  "1": {
+    "responsibilities": [
+      "апапвпвп"
+    ],
+    "skills": [
+      "gfgfgf"
+    ],
+    "roles": [
+      "gfgf"
+    ],
+    "history": [
+      {
+        "timestamp": "2025-12-09T12:26:54",
+        "field": "responsibilities",
+        "old": [],
+        "new": [
+          "апапвпвп"
+        ]
+      },
+      {
+        "timestamp": "2025-12-09T17:54:24",
+        "field": "skills",
+        "old": [],
+        "new": [
+          "gfgfgf"
+        ]
+      },
+      {
+        "timestamp": "2025-12-09T17:54:24",
+        "field": "roles",
+        "old": [],
+        "new": [
+          "gfgf"
+        ]
+      }
+    ]
+  },
+  "4": {
+    "responsibilities": [],
+    "skills": [
+      "Навыйппвапвпв"
+    ],
+    "roles": [],
+    "history": [
+      {
+        "timestamp": "2025-12-09T21:26:46",
+        "field": "skills",
+        "old": [],
+        "new": [
+          "Навый"
+        ]
+      },
+      {
+        "timestamp": "2025-12-09T21:42:40",
+        "field": "skills",
+        "old": [
+          "Навый"
+        ],
+        "new": [
+          "Навыйппвапвпв"
+        ]
+      }
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Кошелёк сотрудника – LuchWallet</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="styles.css" />
@@ -12,26 +12,24 @@
 <!--       ОСНОВНОЙ ЭКРАН      -->
 <!-- ========================= -->
 <div id="wallet-page" style="display:none;">
+  <!-- ОБЛАСТЬ СОТРУДНИКА: КОШЕЛЁК -->
   <div class="page">
-    <!-- Лого + подпись -->
-    <div class="lw-logo-wrapper-page" id="company-logo-row">
-      <img src="logo.svg" alt="ТК «Луч»" />
-      <span>Сервис LuchWallet</span>
-    </div>
-
-    <!-- Верхняя панель пользователя -->
-    <div class="top-user-bar">
-      <div id="top-user-info" class="top-user"></div>
-      <button id="logout-btn" class="logout-btn-main">Выйти</button>
-    </div>
     <header>
+      <div class="header-left">
+        <div class="lw-logo-wrapper-page" id="company-logo-row">
+          <img src="logo.svg" alt="ТК «Луч»" />
+        </div>
+      </div>
+
       <div class="header-text">
         <!-- Десктопный заголовок -->
         <div class="header-desktop">
-          <h1 id="page-title">Кошелёк сотрудника</h1>
-          <p id="page-subtitle" class="subtitle">
-            Всё о зарплате, времени и дисциплине.
-          </p>
+          <div class="header-title-block">
+            <h1 id="page-title">Кошелёк сотрудника</h1>
+            <p id="page-subtitle" class="subtitle">
+              Всё о зарплате, времени и дисциплине.
+            </p>
+          </div>
         </div>
 
         <!-- Мобильная карточка баланса -->
@@ -40,385 +38,530 @@
           <div class="header-balance-value" id="header-balance-value">—</div>
         </div>
       </div>
+
+      <div class="header-right">
+        <div id="top-user-info" class="top-user"></div>
+        <button id="logout-btn" class="logout-btn-main">Выйти</button>
+      </div>
     </header>
 
-    <!-- ===================== -->
-    <!--   ЛЭЙАУТ СОТРУДНИКА   -->
-    <!-- ===================== -->
-    <div id="employee-layout" class="layout">
-      <!-- Левая большая карточка с данными -->
-      <section class="card" id="main-employee-card">
-        <div class="name-block">
-          <div class="avatar">
-            <span id="emp-avatar-initials">••</span>
-          </div>
-          <div>
-            <div class="name-block-main" id="emp-name">Сотрудник</div>
-            <div class="name-block-sub" id="emp-position">Должность</div>
-            <div class="name-block-sub">
-              Ставка: <span id="emp-rate">—</span> ·
-              Стаж: <span id="emp-experience">—</span>
-            </div>
-            <div class="status-row">
-              <span class="status-label">Статус:</span>
-              <span id="emp-status">—</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="status-row">
-          <span class="status-label">Баланс:</span>
-          <span id="emp-salary">—</span>
-        </div>
-
-        <div class="status-row">
-          <span class="status-label">Отработано:</span>
-          <span id="emp-hours">—</span>
-        </div>
-
-        <div class="status-row">
-          <span class="status-label">Детализация часов:</span>
-          <span id="emp-hours-detail">—</span>
-        </div>
-
-        <div class="error-text" id="emp-error"></div>
-
-        <!-- График дохода -->
-        <div class="income-block">
-          <div class="income-header">
-            <div>
-              <div class="income-title">Доход по месяцам</div>
-              <div class="income-subtitle" id="income-active-label">
-                Текущий год
-              </div>
-            </div>
-            <div class="income-filters">
-              <span>Год:</span>
-              <select id="income-year-select"></select>
-              <span>Месяц:</span>
-              <select id="income-month-select"></select>
-            </div>
-          </div>
-
-          <div id="income-chart" class="income-chart"></div>
-
-          <!-- Попап по месяцу -->
-          <div id="month-popup" class="month-popup" style="display:none;">
-            <div id="month-popup-title" class="month-popup-title"></div>
-            <div class="month-popup-row">
-              <span>Начислено:</span>
-              <span id="month-popup-salary"></span>
-            </div>
-            <div class="month-popup-row">
-              <span>Часы:</span>
-              <span id="month-popup-hours"></span>
-            </div>
-            <div class="month-popup-row">
-              <span>Штрафы:</span>
-              <span id="month-popup-penalties"></span>
-            </div>
-            <div class="month-popup-row">
-              <span>Прогулы:</span>
-              <span id="month-popup-absences"></span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Правая колонка -->
-      <section style="display:flex; flex-direction:column; gap:16px;">
-        <!-- Скрытая карточка баланса (для клика по истории) -->
-        <div class="card-light card-accent info-card clickable"
-             id="card-salary" style="display:none;">
-          <div class="card-title">Баланс</div>
-          <div class="salary" id="emp-salary-card">—</div>
-        </div>
-
-        <div class="card-light card-accent info-card" id="card-hours">
-          <div class="card-title">Отработанное время</div>
-          <div class="salary" id="emp-hours-duplicate">—</div>
-          <div id="emp-hours-detail-duplicate"></div>
-        </div>
-
-        <div class="card-light info-card">
-          <div class="card-title">Штрафы и замечания</div>
-          <ul class="list" id="emp-penalties-list"></ul>
-        </div>
-
-        <div class="card-light info-card">
-          <div class="card-title">Прогулы и опоздания</div>
-          <ul class="list" id="emp-absence-list"></ul>
-        </div>
-      </section>
+    <div class="employee-view-toggle">
+      <button id="btn-view-card" class="tab-button tab-active">Карточка сотрудника</button>
+      <button id="btn-view-wallet" class="tab-button">Кошелёк</button>
     </div>
 
-    <!-- ===================== -->
-    <!--       АДМИН-ПАНЕЛЬ    -->
-    <!-- ===================== -->
-    <div id="admin-layout" class="admin-layout">
-      <div class="admin-grid">
-        <!-- ЛЕВАЯ ПАНЕЛЬ: СПИСОК СОТРУДНИКОВ -->
-        <section class="card-light">
-          <div class="admin-toolbar">
-            <div>Сотрудники</div>
+    <!-- Основной лэйаут: левая навигация + кошелёк -->
+    <div id="employee-layout" class="main-layout">
+      <!-- Левая вертикальная панель -->
+      <div class="nav-rail">
+        <button class="nav-pill nav-pill-active">Кошелёк</button>
+
+        <!-- переход на отдельную страницу карточки сотрудника -->
+        <!-- если файл employee/index.html -->
+        <a href="/employee/" class="nav-pill nav-pill-link">Карточка сотрудника</a>
+        <!-- если оставишь employee/employee.html, то будет так:
+        <a href="/employee/employee.html" class="nav-pill nav-pill-link">Карточка сотрудника</a>
+        -->
+      </div>
+
+      <!-- Кошелёк сотрудника (как раньше) -->
+      <div id="employee-card-view" class="employee-view" style="display:none;">
+        <section class="card employee-card-main">
+          <div class="employee-card-header">
             <div>
-              <button id="admin-refresh-btn" class="btn-small btn-gray">Обновить</button>
-              <button id="admin-export-excel-btn" class="btn-small btn-green">Excel</button>
+              <div class="employee-name" id="card-fullname">ФИО</div>
+              <div class="employee-position" id="card-position">Должность</div>
+            </div>
+            <div class="employee-card-actions">
+              <span id="card-mode-tag" class="tag">Просмотр</span>
+              <button id="card-edit-btn" class="btn-small btn-gray">Редактировать</button>
+              <button id="card-save-btn" class="btn-small btn-green" style="display:none;">Сохранить</button>
+              <button id="card-cancel-btn" class="btn-small btn-gray" style="display:none;">Отмена</button>
             </div>
           </div>
 
-          <table class="admin-table">
+          <div class="employee-card-grid">
+            <div class="employee-card-column">
+              <div class="section">
+                <div class="section-title">Основные данные</div>
+
+                <div class="field-mini">
+                  <span>Подразделение</span>
+                  <div id="card-department">—</div>
+                </div>
+
+                <div class="field-mini">
+                  <span>Склад / точка</span>
+                  <div id="card-warehouse">—</div>
+                </div>
+
+                <div class="field-mini">
+                  <span>Роль на смене</span>
+                  <div id="card-shift-role">—</div>
+                </div>
+
+                <div class="field-mini">
+                  <span>Ставка</span>
+                  <div id="card-rate">—</div>
+                </div>
+
+                <div class="field-mini">
+                  <span>Стаж</span>
+                  <div id="card-experience">—</div>
+                </div>
+
+                <div class="field-mini">
+                  <span>Статус</span>
+                  <input id="card-status-input" class="input-mini" type="text" disabled />
+                </div>
+              </div>
+
+              <div class="section">
+                <div class="section-title">Рабочее время</div>
+
+                <div class="field-mini">
+                  <span>График</span>
+                  <div id="card-schedule">По данным системы</div>
+                </div>
+
+                <div class="field-mini">
+                  <span>Текущий статус</span>
+                  <div id="card-current-status">—</div>
+                </div>
+
+                <div class="field-mini">
+                  <span>Последнее изменение статуса</span>
+                  <div id="card-last-status-change">—</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="employee-card-column">
+              <div class="section">
+                <div class="section-title">Функциональные обязанности</div>
+                <textarea id="card-responsibilities-input"
+                          class="textarea-mini"
+                          rows="3"
+                          disabled
+                          placeholder="Каждая обязанность с новой строки"></textarea>
+              </div>
+
+              <div class="section">
+                <div class="section-title">Навыки</div>
+                <textarea id="card-skills-input"
+                          class="textarea-mini"
+                          rows="3"
+                          disabled
+                          placeholder="Каждый навык с новой строки"></textarea>
+              </div>
+
+              <div class="section">
+                <div class="section-title">Роли</div>
+                <textarea id="card-roles-input"
+                          class="textarea-mini"
+                          rows="3"
+                          disabled
+                          placeholder="Каждая роль с новой строки"></textarea>
+              </div>
+
+              <div class="section">
+                <div class="section-title">История изменений</div>
+                <ul id="card-history-list" class="history-list">
+                  <li class="history-empty">Изменения пока не зафиксированы</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div id="employee-wallet-view" class="employee-view">
+        <!-- Левая большая карточка с данными -->
+        <section class="card" id="main-employee-card">
+          <div class="name-block">
+            <div class="avatar">
+              <span id="emp-avatar-initials">••</span>
+            </div>
+            <div>
+              <div class="name-block-main" id="emp-name">Сотрудник</div>
+              <div class="name-block-sub" id="emp-position">Должность</div>
+              <div class="name-block-sub">
+                Ставка: <span id="emp-rate">—</span> ·
+                Стаж: <span id="emp-experience">—</span>
+              </div>
+              <div class="status-row">
+                <span class="status-label">Статус:</span>
+                <span id="emp-status">—</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="salary-block">
+            <div>
+              <div class="salary-label">Баланс</div>
+              <div class="salary" id="emp-salary">—</div>
+            </div>
+          </div>
+
+          <div class="status-row">
+            <span class="status-label">Часы за месяц:</span>
+            <span id="emp-hours">—</span>
+          </div>
+
+          <div class="status-row">
+            <span class="status-label">Детализация часов:</span>
+            <span id="emp-hours-detail">—</span>
+          </div>
+
+          <div class="error-text" id="emp-error"></div>
+
+          <!-- График дохода -->
+          <div class="income-block">
+            <div class="income-header">
+              <div>
+                <div class="income-title">Доход по месяцам</div>
+                <div class="income-subtitle" id="income-active-label">
+                  Текущий год
+                </div>
+              </div>
+              <div class="income-filters">
+                <span>Год:</span>
+                <select id="income-year-select"></select>
+                <span>Месяц:</span>
+                <select id="income-month-select"></select>
+              </div>
+            </div>
+
+            <div id="income-chart" class="income-chart"></div>
+
+            <!-- Попап по месяцу -->
+            <div id="month-popup" class="month-popup" style="display:none;">
+              <div id="month-popup-title" class="month-popup-title"></div>
+              <div class="month-popup-row">
+                <span>Начислено:</span>
+                <span id="month-popup-salary"></span>
+              </div>
+              <div class="month-popup-row">
+                <span>Часы:</span>
+                <span id="month-popup-hours"></span>
+              </div>
+              <div class="month-popup-row">
+                <span>Штрафы:</span>
+                <span id="month-popup-penalties"></span>
+              </div>
+              <div class="month-popup-row">
+                <span>Прогулы:</span>
+                <span id="month-popup-absences"></span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Правая колонка кошелька -->
+        <section style="display:flex; flex-direction:column; gap:16px;">
+          <!-- Скрытая карточка баланса (для клика по истории) -->
+          <div class="card-light card-accent info-card clickable"
+               id="card-salary" style="display:none;">
+            <div class="card-title">Баланс</div>
+            <div class="salary" id="emp-salary-card">—</div>
+          </div>
+
+          <div class="card-light card-accent info-card clickable" id="card-hours" role="button" tabindex="0">
+            <div class="card-title">Отработанное время</div>
+            <div class="salary" id="emp-hours-duplicate">—</div>
+            <div id="emp-hours-detail-duplicate"></div>
+          </div>
+
+          <div class="card-light card-accent info-card clickable" id="card-penalties" role="button" tabindex="0">
+            <div class="card-title">Штрафы и замечания</div>
+            <ul class="list" id="emp-penalties-list"></ul>
+          </div>
+
+          <div class="card-light card-accent info-card clickable" id="card-absences" role="button" tabindex="0">
+            <div class="card-title">Прогулы и опоздания</div>
+            <ul class="list" id="emp-absence-list"></ul>
+          </div>
+        </section>
+      </div>
+    </div> <!-- /main-layout -->
+  </div> <!-- /.page -->
+  <div id="info-modal" class="info-modal">
+    <div class="info-modal__card">
+      <div class="info-modal__header">
+        <span id="info-modal-title"></span>
+        <button id="info-modal-close" class="info-modal__close" aria-label="Закрыть">&times;</button>
+      </div>
+      <div id="info-modal-body" class="info-modal__body"></div>
+    </div>
+  </div>
+
+
+  <!-- ===================== -->
+  <!--       АДМИН-ПАНЕЛЬ    -->
+  <!-- ===================== -->
+  <div id="admin-layout" class="admin-layout">
+    <div class="admin-grid">
+      <!-- ЛЕВАЯ ПАНЕЛЬ: СПИСОК СОТРУДНИКОВ -->
+      <section class="card-light">
+        <div class="admin-toolbar">
+          <div>Сотрудники</div>
+          <div>
+            <button id="admin-refresh-btn" class="btn-small btn-gray">Обновить</button>
+            <button id="admin-export-excel-btn" class="btn-small btn-green">Excel</button>
+          </div>
+        </div>
+
+        <table class="admin-table">
+          <thead>
+          <tr>
+            <th>ID</th>
+            <th>Логин</th>
+            <th>ФИО</th>
+            <th>Должность</th>
+            <th>Роль</th>
+            <th>Смена</th>
+          </tr>
+          </thead>
+          <tbody id="admin-table-body">
+          <tr>
+            <td colspan="6" class="admin-table-empty">
+              Выберите сотрудника
+            </td>
+          </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ПРАВАЯ ПАНЕЛЬ: КАРТОЧКА СОТРУДНИКА (АДМИН) -->
+      <section class="card-light admin-form-card">
+        <!-- Заголовок формы -->
+        <div class="admin-form-title">
+          <span id="admin-form-title">Карточка сотрудника</span>
+          <span id="admin-form-mode" class="tag">Просмотр</span>
+        </div>
+
+        <!-- ОСНОВНЫЕ ДАННЫЕ -->
+        <div class="admin-section">
+          <div class="admin-section-header">Основные данные</div>
+
+          <div class="admin-row">
+            <div class="field">
+              <label for="adm-name">ФИО</label>
+              <input id="adm-name" type="text" />
+            </div>
+            <div class="field">
+              <label for="adm-login">Логин</label>
+              <input id="adm-login" type="text" />
+            </div>
+            <div class="field">
+              <label for="adm-password">Пароль</label>
+              <input id="adm-password" type="text" />
+            </div>
+          </div>
+
+          <div class="admin-row">
+            <div class="field">
+              <label for="adm-position">Должность</label>
+              <input id="adm-position" type="text" />
+            </div>
+            <div class="field">
+              <label for="adm-rate">Ставка</label>
+              <input id="adm-rate" type="text" />
+            </div>
+            <div class="field">
+              <label for="adm-experience">Стаж</label>
+              <input id="adm-experience" type="text" />
+            </div>
+          </div>
+
+          <div class="admin-row">
+            <div class="field">
+              <label for="adm-status">Статус</label>
+              <input id="adm-status" type="text" />
+            </div>
+            <div class="field">
+              <label for="adm-salary">Баланс</label>
+              <input id="adm-salary" type="text" />
+            </div>
+            <div class="field">
+              <label for="adm-initials">Инициалы</label>
+              <input id="adm-initials" type="text" />
+            </div>
+          </div>
+        </div>
+
+        <!-- УЧЁТ ВРЕМЕНИ -->
+        <div class="admin-section">
+          <div class="admin-section-header">Учёт времени</div>
+
+          <div class="admin-row">
+            <div class="field">
+              <label for="adm-hours">Часы всего</label>
+              <input id="adm-hours" type="text" />
+            </div>
+            <div class="field">
+              <label for="adm-overtime">Сверхурочные</label>
+              <input id="adm-overtime" type="text" />
+            </div>
+            <div class="field">
+              <label for="adm-night-hours">Ночные</label>
+              <input id="adm-night-hours" type="text" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="adm-hours-detail">Детализация часов</label>
+            <textarea id="adm-hours-detail" rows="2"></textarea>
+          </div>
+        </div>
+
+        <!-- ДИСЦИПЛИНА -->
+        <div class="admin-section">
+          <div class="admin-section-header">Дисциплина</div>
+
+          <div class="admin-row">
+            <div class="field">
+              <label for="adm-fines-count">Штрафы</label>
+              <input id="adm-fines-count" type="number" />
+            </div>
+            <div class="field">
+              <label for="adm-absent-count">Прогулы</label>
+              <input id="adm-absent-count" type="number" />
+            </div>
+            <div class="field">
+              <label for="adm-penalty-comment">Комментарий</label>
+              <input id="adm-penalty-comment" type="text" />
+            </div>
+          </div>
+
+          <div class="admin-row">
+            <div class="field">
+              <label for="adm-penalties">Список штрафов</label>
+              <textarea id="adm-penalties" rows="3"></textarea>
+            </div>
+            <div class="field">
+              <label for="adm-absences">Список прогулов</label>
+              <textarea id="adm-absences" rows="3"></textarea>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="adm-error-text">Комментарий по ошибкам / примечания</label>
+            <textarea id="adm-error-text" rows="2"></textarea>
+          </div>
+        </div>
+
+        <!-- ФОТО -->
+        <div class="admin-section">
+          <div class="admin-section-header">Фото</div>
+
+          <div class="field">
+            <label for="adm-photo-url">Фото (URL)</label>
+            <div class="photo-url-row">
+              <input id="adm-photo-url" type="text" placeholder="https://..." />
+              <button id="adm-photo-clear-btn" class="btn-small btn-gray">×</button>
+            </div>
+            <div class="photo-file-row">
+              <input id="adm-photo-file" type="file" />
+              <button id="adm-photo-upload-btn" class="btn-small btn-green">Загрузить</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- КНОПКИ СОХРАНЕНИЯ -->
+        <div class="admin-section">
+          <div class="admin-toolbar">
+            <div>
+              <button id="admin-new-btn" class="btn-small btn-gray">Новый</button>
+              <button id="admin-delete-btn" class="btn-small btn-red">Удалить</button>
+            </div>
+            <button id="admin-save-btn" class="btn-small btn-green">Сохранить</button>
+          </div>
+        </div>
+
+        <!-- СМЕНА / СКЛАД -->
+        <div class="admin-section">
+          <div class="admin-section-header">Смена и склад</div>
+
+          <div class="admin-row">
+            <div class="field">
+              <label for="adm-warehouse">Склад</label>
+              <input id="adm-warehouse" type="text" placeholder="Челябинск · Склад №1" />
+            </div>
+            <div class="field">
+              <label for="adm-shift-role">Роль на смене</label>
+              <select id="adm-shift-role">
+                <option value="">Не указана</option>
+                <option value="receiver">Приёмщик</option>
+                <option value="loader">Кладовщик (погрузка)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="adm-shift-rate">Ставка за смену</label>
+              <input id="adm-shift-rate" type="number" min="0" placeholder="1850" />
+            </div>
+          </div>
+
+          <div class="field" style="margin-top:8px;">
+            <label>
+              <input id="adm-on-shift" type="checkbox" />
+              Сотрудник на смене сегодня
+            </label>
+          </div>
+        </div>
+
+        <!-- ИСТОРИЯ НАЧИСЛЕНИЙ -->
+        <div class="admin-section">
+          <div class="admin-section-header">История начислений</div>
+
+          <div class="admin-row">
+            <div class="field">
+              <label for="pay-type">Тип</label>
+              <select id="pay-type">
+                <option value="accrual">Начисление</option>
+                <option value="fine">Штраф</option>
+                <option value="other">Другое</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="pay-amount">Сумма</label>
+              <input id="pay-amount" type="number" />
+            </div>
+            <div class="field">
+              <label for="pay-comment">Комментарий</label>
+              <input id="pay-comment" type="text" />
+            </div>
+            <div class="field" style="align-self:flex-end;">
+              <button id="pay-add-btn" class="btn-small btn-green" style="width:100%;">Добавить</button>
+            </div>
+          </div>
+
+          <table class="admin-table" style="margin-top:8px;">
             <thead>
-              <tr>
-                <th>ID</th>
-                <th>Логин</th>
-                <th>ФИО</th>
-                <th>Должность</th>
-                <th>Роль</th>
-                <th>Смена</th>
-              </tr>
+            <tr>
+              <th>Дата</th>
+              <th>Тип</th>
+              <th>Сумма</th>
+              <th>Комментарий</th>
+              <th></th>
+            </tr>
             </thead>
-            <tbody id="admin-table-body">
-              <tr>
-                <td colspan="6" class="admin-table-empty">
-                  Выберите сотрудника
-                </td>
-              </tr>
+            <tbody id="payments-table-body">
+            <tr>
+              <td colspan="5" class="admin-table-empty">Нет операций</td>
+            </tr>
             </tbody>
           </table>
-        </section>
-
-        <!-- ПРАВАЯ ПАНЕЛЬ: КАРТОЧКА СОТРУДНИКА (УЛУЧШЕННАЯ) -->
-        <section class="card-light admin-form-card">
-          <!-- Заголовок формы -->
-          <div class="admin-form-title">
-            <span id="admin-form-title">Карточка сотрудника</span>
-            <span id="admin-form-mode" class="tag">Просмотр</span>
-          </div>
-
-          <!-- ОСНОВНЫЕ ДАННЫЕ -->
-          <div class="admin-section">
-            <div class="admin-section-header">Основные данные</div>
-
-            <div class="admin-row">
-              <div class="field">
-                <label for="adm-name">ФИО</label>
-                <input id="adm-name" type="text" />
-              </div>
-              <div class="field">
-                <label for="adm-login">Логин</label>
-                <input id="adm-login" type="text" />
-              </div>
-              <div class="field">
-                <label for="adm-password">Пароль</label>
-                <input id="adm-password" type="text" />
-              </div>
-            </div>
-
-            <div class="admin-row">
-              <div class="field">
-                <label for="adm-position">Должность</label>
-                <input id="adm-position" type="text" />
-              </div>
-              <div class="field">
-                <label for="adm-rate">Ставка</label>
-                <input id="adm-rate" type="text" />
-              </div>
-              <div class="field">
-                <label for="adm-experience">Стаж</label>
-                <input id="adm-experience" type="text" />
-              </div>
-            </div>
-
-            <div class="admin-row">
-              <div class="field">
-                <label for="adm-status">Статус</label>
-                <input id="adm-status" type="text" />
-              </div>
-              <div class="field">
-                <label for="adm-salary">Баланс</label>
-                <input id="adm-salary" type="text" />
-              </div>
-              <div class="field">
-                <label for="adm-initials">Инициалы</label>
-                <input id="adm-initials" type="text" />
-              </div>
-            </div>
-          </div>
-
-          <!-- УЧЁТ ВРЕМЕНИ -->
-          <div class="admin-section">
-            <div class="admin-section-header">Учёт времени</div>
-
-            <div class="admin-row">
-              <div class="field">
-                <label for="adm-hours">Часы всего</label>
-                <input id="adm-hours" type="text" />
-              </div>
-              <div class="field">
-                <label for="adm-overtime">Сверхурочные</label>
-                <input id="adm-overtime" type="text" />
-              </div>
-              <div class="field">
-                <label for="adm-night-hours">Ночные</label>
-                <input id="adm-night-hours" type="text" />
-              </div>
-            </div>
-
-            <div class="field">
-              <label for="adm-hours-detail">Детализация часов</label>
-              <textarea id="adm-hours-detail" rows="2"></textarea>
-            </div>
-          </div>
-
-          <!-- ДИСЦИПЛИНА -->
-          <div class="admin-section">
-            <div class="admin-section-header">Дисциплина</div>
-
-            <div class="admin-row">
-              <div class="field">
-                <label for="adm-fines-count">Штрафы</label>
-                <input id="adm-fines-count" type="number" />
-              </div>
-              <div class="field">
-                <label for="adm-absent-count">Прогулы</label>
-                <input id="adm-absent-count" type="number" />
-              </div>
-              <div class="field">
-                <label for="adm-penalty-comment">Комментарий</label>
-                <input id="adm-penalty-comment" type="text" />
-              </div>
-            </div>
-
-            <div class="admin-row">
-              <div class="field">
-                <label for="adm-penalties">Список штрафов</label>
-                <textarea id="adm-penalties" rows="3"></textarea>
-              </div>
-              <div class="field">
-                <label for="adm-absences">Список прогулов</label>
-                <textarea id="adm-absences" rows="3"></textarea>
-              </div>
-            </div>
-
-            <div class="field">
-              <label for="adm-error-text">Комментарий по ошибкам / примечания</label>
-              <textarea id="adm-error-text" rows="2"></textarea>
-            </div>
-          </div>
-
-          <!-- ФОТО -->
-          <div class="admin-section">
-            <div class="admin-section-header">Фото</div>
-
-            <div class="field">
-              <label for="adm-photo-url">Фото (URL)</label>
-              <div class="photo-url-row">
-                <input id="adm-photo-url" type="text" placeholder="https://..." />
-                <button id="adm-photo-clear-btn" class="btn-small btn-gray">×</button>
-              </div>
-              <div class="photo-file-row">
-                <input id="adm-photo-file" type="file" />
-                <button id="adm-photo-upload-btn" class="btn-small btn-green">Загрузить</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- КНОПКИ СОХРАНЕНИЯ -->
-          <div class="admin-section">
-            <div class="admin-toolbar">
-              <div>
-                <button id="admin-new-btn" class="btn-small btn-gray">Новый</button>
-                <button id="admin-delete-btn" class="btn-small btn-red">Удалить</button>
-              </div>
-              <button id="admin-save-btn" class="btn-small btn-green">Сохранить</button>
-            </div>
-          </div>
-
-          <!-- СМЕНА / СКЛАД -->
-          <div class="admin-section">
-            <div class="admin-section-header">Смена и склад</div>
-
-            <div class="admin-row">
-              <div class="field">
-                <label for="adm-warehouse">Склад</label>
-                <input id="adm-warehouse" type="text" placeholder="Челябинск · Склад №1" />
-              </div>
-              <div class="field">
-                <label for="adm-shift-role">Роль на смене</label>
-                <select id="adm-shift-role">
-                  <option value="">Не указана</option>
-                  <option value="receiver">Приёмщик</option>
-                  <option value="loader">Кладовщик (погрузка)</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="adm-shift-rate">Ставка за смену</label>
-                <input id="adm-shift-rate" type="number" min="0" placeholder="1850" />
-              </div>
-            </div>
-
-            <div class="field" style="margin-top:8px;">
-              <label>
-                <input id="adm-on-shift" type="checkbox" />
-                Сотрудник на смене сегодня
-              </label>
-            </div>
-          </div>
-
-          <!-- ИСТОРИЯ НАЧИСЛЕНИЙ -->
-          <div class="admin-section">
-            <div class="admin-section-header">История начислений</div>
-
-            <div class="admin-row">
-              <div class="field">
-                <label for="pay-type">Тип</label>
-                <select id="pay-type">
-                  <option value="accrual">Начисление</option>
-                  <option value="fine">Штраф</option>
-                  <option value="other">Другое</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="pay-amount">Сумма</label>
-                <input id="pay-amount" type="number" />
-              </div>
-              <div class="field">
-                <label for="pay-comment">Комментарий</label>
-                <input id="pay-comment" type="text" />
-              </div>
-              <div class="field" style="align-self:flex-end;">
-                <button id="pay-add-btn" class="btn-small btn-green" style="width:100%;">Добавить</button>
-              </div>
-            </div>
-
-            <table class="admin-table" style="margin-top:8px;">
-              <thead>
-                <tr>
-                  <th>Дата</th>
-                  <th>Тип</th>
-                  <th>Сумма</th>
-                  <th>Комментарий</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="payments-table-body">
-                <tr>
-                  <td colspan="5" class="admin-table-empty">Нет операций</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
-    </div>
-
-        <!-- Мобильная кнопка выхода -->
-        <div class="mobile-logout-wrapper">
-          <button id="logout-btn-bottom" class="logout-btn-main">Выйти</button>
         </div>
-      </div>
+      </section>
     </div>
+  </div> <!-- /admin-layout -->
+
+  <!-- Мобильная кнопка выхода -->
+  <div class="mobile-logout-wrapper">
+    <button id="logout-btn-bottom" class="logout-btn-main">Выйти</button>
+  </div>
+</div> <!-- /wallet-page -->
 
 <!-- ================================= -->
 <!--   МОДАЛКА ИСТОРИИ БАЛАНСА         -->
@@ -435,17 +578,17 @@
 
     <table class="balance-history-table">
       <thead>
-        <tr>
-          <th>Дата</th>
-          <th>Тип</th>
-          <th>Сумма</th>
-          <th>Комментарий</th>
-        </tr>
+      <tr>
+        <th>Дата</th>
+        <th>Тип</th>
+        <th>Сумма</th>
+        <th>Комментарий</th>
+      </tr>
       </thead>
       <tbody id="balance-history-body">
-        <tr>
-          <td colspan="4" class="balance-history-empty">Нет операций</td>
-        </tr>
+      <tr>
+        <td colspan="4" class="balance-history-empty">Нет операций</td>
+      </tr>
       </tbody>
     </table>
   </div>
