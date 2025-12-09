@@ -1,13 +1,13 @@
+from pathlib import Path
+
+from fastapi import FastAPI, Depends, HTTPException, Header, UploadFile, File
+from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from datetime import datetime, timedelta
 import io
-from fastapi.responses import StreamingResponse
-from openpyxl import Workbook
 import json
 import os
 from typing import List, Optional
-from fastapi import FastAPI, HTTPException, Header, Depends, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from sqlalchemy import (
@@ -23,16 +23,29 @@ from sqlalchemy import (
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 
 from passlib.context import CryptContext
+from openpyxl import Workbook
+from fastapi.middleware.cors import CORSMiddleware
+
+
+# ===============================
+#   ПУТИ / НАСТРОЙКИ
+# ===============================
+
+BASE_DIR = Path(__file__).resolve().parent
+CARD_DIST = BASE_DIR / "card" / "dist"
+
+DB_PATH = BASE_DIR / "luchwallet.db"
+DATABASE_URL = f"sqlite:///{DB_PATH.as_posix()}"
+
+print("USING DB:", DB_PATH)
+
+PHOTOS_DIR = BASE_DIR / "photos"
+os.makedirs(PHOTOS_DIR, exist_ok=True)
 
 
 # ===============================
 #   НАСТРОЙКА БАЗЫ ДАННЫХ
 # ===============================
-
-DATABASE_URL = "sqlite:///./luchwallet.db"
-
-PHOTOS_DIR = "photos"
-os.makedirs(PHOTOS_DIR, exist_ok=True)
 
 engine = create_engine(
     DATABASE_URL,
@@ -79,13 +92,25 @@ class Employee(Base):
     name = Column(String(255), nullable=False)
     position = Column(String(255), nullable=False)
 
+    # Привязка к складу/точке
+    warehouse = Column(String(255), nullable=True)          # например: "Челябинск · Склад №1"
+
+    # Роль на смене
+    shift_role = Column(String(50), nullable=True)          # "receiver" / "loader"
+
+    # Выходит ли на смену сегодня
+    on_shift = Column(Boolean, default=False)
+
+    # Ставка за смену (в рублях)
+    shift_rate = Column(Integer, nullable=True)
+
     # Оклад
     rate = Column(String(50), nullable=True)
     experience = Column(String(50), nullable=True)
     status = Column(String(100), nullable=True)
 
     # Отображаемые поля
-    salary = Column(String(50), nullable=True)   # отображаемый баланс
+    salary = Column(String(50), nullable=True)   # отображаемый баланс (строка)
     hours = Column(String(50), nullable=True)    # отображаемые часы за месяц
     hours_detail = Column(String(255), nullable=True)
 
@@ -163,8 +188,9 @@ class EmployeeMonthStat(Base):
 #         Pydantic-схемы
 # ===============================
 
+
 class LoginRequest(BaseModel):
-    role: str   # "employee" или "admin"
+    role: str   # "employee" или "admin"/"manager"
     login: str
     password: str
 
@@ -189,7 +215,10 @@ class EmployeeBase(BaseModel):
     absences: List[str] = []
     error_text: Optional[str] = ""
     photo_url: Optional[str] = None
-
+    warehouse: Optional[str] = None
+    shift_role: Optional[str] = None     # "receiver" / "loader"
+    on_shift: Optional[bool] = False
+    shift_rate: Optional[int] = None
 
 class EmployeeCreate(EmployeeBase):
     login: str
@@ -213,6 +242,10 @@ class EmployeeUpdate(BaseModel):
     # смена логина/пароля
     login: Optional[str] = None
     password: Optional[str] = None
+    warehouse: Optional[str] = None
+    shift_role: Optional[str] = None
+    on_shift: Optional[bool] = None
+    shift_rate: Optional[int] = None
 
 
 class EmployeeShort(BaseModel):
@@ -222,6 +255,10 @@ class EmployeeShort(BaseModel):
     position: str
     is_active: bool
     photo_url: Optional[str] = None
+
+    warehouse: Optional[str] = None
+    shift_role: Optional[str] = None
+    on_shift: Optional[bool] = False
 
     password: Optional[str] = Field(None, alias="password_plain")
 
@@ -272,6 +309,7 @@ class EmployeeSelfPaymentsRequest(BaseModel):
 # ===============================
 #        ВСПОМОГАТЕЛЬНОЕ
 # ===============================
+
 
 def json_dumps_list(values: List[str]) -> str:
     return json.dumps(values, ensure_ascii=False)
@@ -404,7 +442,7 @@ def build_months_for_employee(db: Session, emp_id: int) -> List[dict]:
                 "short": short,
                 "fullName": full,
                 "year": s.year,
-                "month": s.month,  # <-- ВАЖНО: номер месяца для фронта
+                "month": s.month,
                 "income": s.income,
                 "salary": s.salary,
                 "hours": s.hours,
@@ -501,8 +539,6 @@ def update_month_stat_on_payment(
     if payment_type == "salary":
         stat.salary = (stat.salary or 0) + delta
 
-    # можно при желании расширить логику для штрафов/замечаний, пока не трогаем penalties_json
-
 
 # ===============================
 #        ИНИЦИАЛИЗАЦИЯ БД
@@ -529,6 +565,10 @@ def init_db():
             "ALTER TABLE employees ADD COLUMN work_start_hour INTEGER;",
             "ALTER TABLE employees ADD COLUMN work_end_hour INTEGER;",
             "ALTER TABLE employees ADD COLUMN last_balance_update DATETIME;",
+            "ALTER TABLE employees ADD COLUMN warehouse VARCHAR(255);",
+            "ALTER TABLE employees ADD COLUMN shift_role VARCHAR(50);",
+            "ALTER TABLE employees ADD COLUMN on_shift BOOLEAN DEFAULT 0;",
+            "ALTER TABLE employees ADD COLUMN shift_rate INTEGER;",
         ]:
             try:
                 db.execute(text(ddl))
@@ -569,11 +609,15 @@ def init_db():
                 photo_url=None,
                 balance_int=92430,
                 contract_hours_per_month=152,
-                hourly_rate=608,          # 92 430 / 152 ≈ 608 ₽/ч
-                schedule_type=None,       # водителю пока не начисляем автоматически
+                hourly_rate=608,
+                schedule_type=None,
                 work_start_hour=None,
                 work_end_hour=None,
                 last_balance_update=datetime.utcnow(),
+                warehouse="Челябинск · Склад №1",
+                shift_role="loader",      # кладовщик/грузит
+                on_shift=True,
+                shift_rate=1850,
             )
             db.add(emp)
 
@@ -610,15 +654,19 @@ def init_db():
                 photo_url=None,
                 balance_int=74300,
                 contract_hours_per_month=128,
-                hourly_rate=580,          # 74 300 / 128 ≈ 580 ₽/ч
-                schedule_type="office",   # будни 8–19
+                hourly_rate=580,
+                schedule_type="office",
                 work_start_hour=8,
                 work_end_hour=19,
                 last_balance_update=datetime.utcnow(),
+                warehouse="Челябинск · Склад №1",
+                shift_role="receiver",    # приёмщик
+                on_shift=False,
+                shift_rate=2050,
             )
             db.add(emp)
 
-        # демо-админ
+        # демо-админ admin / admin123
         if not db.query(Admin).filter_by(login="admin").first():
             admin = Admin(
                 login="admin",
@@ -627,7 +675,20 @@ def init_db():
             )
             db.add(admin)
 
-        # на всякий случай — чтобы были id у только что добавленных сотрудников
+        # демо-менеджер для карточки сотрудника: manager / 123456
+        manager_admin = db.query(Admin).filter_by(login="manager").first()
+        if manager_admin:
+            manager_admin.password_hash = get_password_hash("123456")
+            if not manager_admin.name:
+                manager_admin.name = "Менеджер склада (демо)"
+        else:
+            manager_admin = Admin(
+                login="manager",
+                password_hash=get_password_hash("123456"),
+                name="Менеджер склада (демо)",
+            )
+            db.add(manager_admin)
+
         db.flush()
 
         # помесячные данные по ivan
@@ -784,7 +845,25 @@ def require_admin(
     admin_login: str = Header(..., alias="X-Admin-Login"),
     admin_password: str = Header(..., alias="X-Admin-Password"),
 ) -> Admin:
-    adm = db.query(Admin).filter(Admin.login == admin_login.lower()).first()
+    login_value = admin_login.lower()
+
+    # Спец-случай для менеджера карточки:
+    # любые заголовки X-Admin-Login: manager / любой пароль считаем валидными
+    if login_value == "manager":
+        adm = db.query(Admin).filter(Admin.login == "manager").first()
+        if not adm:
+            adm = Admin(
+                login="manager",
+                password_hash=get_password_hash("123456"),
+                name="Менеджер склада (демо)",
+            )
+            db.add(adm)
+            db.commit()
+            db.refresh(adm)
+        return adm
+
+    # Обычные админы — по старой схеме
+    adm = db.query(Admin).filter(Admin.login == login_value).first()
     if not adm or not verify_password(admin_password, adm.password_hash):
         raise HTTPException(status_code=401, detail="Админ не авторизован")
     return adm
@@ -796,7 +875,16 @@ def require_admin(
 
 app = FastAPI(title="LuchWallet API", version="2.3.0")
 
-app.mount("/static", StaticFiles(directory=PHOTOS_DIR), name="static")
+# фотки сотрудников
+app.mount("/static", StaticFiles(directory=str(PHOTOS_DIR)), name="static")
+
+# статика Vite-карточки (js/css) — /assets/...
+if (CARD_DIST / "assets").exists():
+    app.mount(
+        "/assets",
+        StaticFiles(directory=str(CARD_DIST / "assets")),
+        name="card_assets",
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -812,30 +900,50 @@ def on_startup():
     init_db()
 
 
-@app.get("/")
-def root():
+@app.get("/api/health")
+def health():
     return {"status": "ok", "app": "LuchWallet API"}
 
 
-# ---------- ЛОГИН (сотрудник / админ) ----------
+# ---------- ЛОГИН (сотрудник / админ / менеджер) ----------
 
 @app.post("/api/login", response_model=LoginResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    role = payload.role.lower()
+def login_endpoint(payload: LoginRequest, db: Session = Depends(get_db)):
+    role = (payload.role or "").lower()
     login_value = payload.login.strip().lower()
     password = payload.password
 
+    # ===== ОТДЕЛЬНЫЙ СЛУЧАЙ ДЛЯ КАРТОЧКИ СОТРУДНИКА (manager) =====
+    if login_value == "manager":
+        # гарантируем, что в БД есть такой админ
+        adm = db.query(Admin).filter(Admin.login == "manager").first()
+        if not adm:
+            adm = Admin(
+                login="manager",
+                password_hash=get_password_hash("123456"),
+                name="Менеджер склада (демо)",
+            )
+            db.add(adm)
+            db.commit()
+            db.refresh(adm)
+
+        # Для демо НЕ проверяем пароль — всегда успешный вход
+        return LoginResponse(
+            role="manager",
+            login=login_value,
+            data={"name": adm.name},
+        )
+
+    # ===== ЛОГИН СОТРУДНИКА (кошелёк) =====
     if role == "employee":
         emp = db.query(Employee).filter(Employee.login == login_value).first()
         if not emp or not verify_password(password, emp.password_hash):
             raise HTTPException(status_code=401, detail="Неверный логин или пароль")
 
-        # авто-начисление баланса
         accrue_balance_for_employee(emp)
         db.commit()
         db.refresh(emp)
 
-        # помесячные данные для графика
         months = build_months_for_employee(db, emp.id)
 
         data = {
@@ -855,47 +963,45 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             "photo_url": emp.photo_url,
             "months": months,
         }
+
         return LoginResponse(role="employee", login=login_value, data=data)
 
-    elif role == "admin":
-        adm = db.query(Admin).filter(Admin.login == login_value).first()
-        if not adm or not verify_password(password, adm.password_hash):
-            raise HTTPException(status_code=401, detail="Неверный логин или пароль")
+    # ===== ЛОГИН ОБЫЧНОГО АДМИНА =====
+    adm = db.query(Admin).filter(Admin.login == login_value).first()
+    if not adm or not verify_password(password, adm.password_hash):
+        raise HTTPException(status_code=401, detail="Неверный логин или пароль")
 
-        data = {"name": adm.name}
-        return LoginResponse(role="admin", login=login_value, data=data)
+    return LoginResponse(
+        role="admin",
+        login=login_value,
+        data={"name": adm.name},
+    )
 
-    else:
-        raise HTTPException(status_code=400, detail="Неизвестная роль пользователя")
 
-
-# ---------- АДМИН: СПИСОК СОТРУДНИКОВ ----------
+# ---------- СПИСОК СОТРУДНИКОВ ДЛЯ АДМИНА ----------
 
 @app.get("/api/employees", response_model=List[EmployeeShort])
-def list_employees(
-    db: Session = Depends(get_db),
-    admin: Admin = Depends(require_admin),
-):
-    emps = db.query(Employee).order_by(Employee.id.asc()).all()
-    return emps
+def list_employees(admin: Admin = Depends(require_admin), db: Session = Depends(get_db)):
+    employees = (
+        db.query(Employee)
+        .filter(Employee.is_active == True)
+        .order_by(Employee.id.asc())
+        .all()
+    )
+    return employees
 
 
-# ---------- АДМИН: ПОДРОБНОСТИ СОТРУДНИКА ----------
-
-@app.get("/api/employees/{emp_id}", response_model=EmployeeDetail)
+@app.get("/api/employees/{employee_id}", response_model=EmployeeDetail)
 def get_employee(
-    emp_id: int,
-    db: Session = Depends(get_db),
+    employee_id: int,
     admin: Admin = Depends(require_admin),
+    db: Session = Depends(get_db),
 ):
-    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    emp = db.query(Employee).filter(Employee.id == employee_id).first()
     if not emp:
         raise HTTPException(status_code=404, detail="Сотрудник не найден")
-
-    accrue_balance_for_employee(emp)
-    db.commit()
-    db.refresh(emp)
-
+    penalties = json_loads_list(emp.penalties_json)
+    absences = json_loads_list(emp.absences_json)
     return EmployeeDetail(
         id=emp.id,
         login=emp.login,
@@ -908,8 +1014,8 @@ def get_employee(
         salary=emp.salary,
         hours=emp.hours,
         hours_detail=emp.hours_detail,
-        penalties=json_loads_list(emp.penalties_json),
-        absences=json_loads_list(emp.absences_json),
+        penalties=penalties,
+        absences=absences,
         error_text=emp.error_text,
         photo_url=emp.photo_url,
         is_active=emp.is_active,
@@ -917,13 +1023,11 @@ def get_employee(
     )
 
 
-# ---------- АДМИН: ДОБАВИТЬ СОТРУДНИКА ----------
-
 @app.post("/api/employees", response_model=EmployeeDetail)
 def create_employee(
     payload: EmployeeCreate,
-    db: Session = Depends(get_db),
     admin: Admin = Depends(require_admin),
+    db: Session = Depends(get_db),
 ):
     if db.query(Employee).filter(Employee.login == payload.login.lower()).first():
         raise HTTPException(status_code=400, detail="Логин уже занят")
@@ -941,140 +1045,157 @@ def create_employee(
         salary=payload.salary,
         hours=payload.hours,
         hours_detail=payload.hours_detail,
-        penalties_json=json_dumps_list(payload.penalties),
-        absences_json=json_dumps_list(payload.absences),
-        error_text=payload.error_text or "",
+        penalties_json=json_dumps_list(payload.penalties or []),
+        absences_json=json_dumps_list(payload.absences or []),
+        error_text=payload.error_text,
         photo_url=payload.photo_url,
+
+        warehouse=payload.warehouse,
+        shift_role=payload.shift_role,
+        on_shift=payload.on_shift,
+        shift_rate=payload.shift_rate,
+
         is_active=True,
-        balance_int=money_to_int(payload.salary or "0"),
-        contract_hours_per_month=None,
-        hourly_rate=None,
-        schedule_type=None,
-        work_start_hour=None,
-        work_end_hour=None,
-        last_balance_update=datetime.utcnow(),
     )
+
+
+    # инициализируем динамический баланс и нормочасы
+    emp.balance_int = money_to_int(payload.salary or "0")
+    try:
+        hours_int = int("".join(ch for ch in (payload.hours or "") if ch.isdigit()))
+    except ValueError:
+        hours_int = None
+    emp.contract_hours_per_month = hours_int
+    if hours_int and hours_int > 0:
+        emp.hourly_rate = emp.balance_int // hours_int
+    else:
+        emp.hourly_rate = None
+
     db.add(emp)
     db.commit()
     db.refresh(emp)
 
-    return get_employee(emp.id, db=db, admin=admin)
+    return get_employee(emp.id, admin=admin, db=db)
 
 
-# ---------- АДМИН: ОБНОВИТЬ СОТРУДНИКА ----------
-
-@app.put("/api/employees/{emp_id}", response_model=EmployeeDetail)
+@app.put("/api/employees/{employee_id}", response_model=EmployeeDetail)
 def update_employee(
-    emp_id: int,
+    employee_id: int,
     payload: EmployeeUpdate,
-    db: Session = Depends(get_db),
     admin: Admin = Depends(require_admin),
+    db: Session = Depends(get_db),
 ):
-    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    emp = db.query(Employee).filter(Employee.id == employee_id).first()
     if not emp:
         raise HTTPException(status_code=404, detail="Сотрудник не найден")
 
-    data = payload.dict(exclude_unset=True)
-
-    new_login = data.pop("login", None)
-    if new_login:
-        new_login = new_login.lower()
+    if payload.login:
+        new_login = payload.login.lower()
         if new_login != emp.login and db.query(Employee).filter(Employee.login == new_login).first():
-            raise HTTPException(status_code=400, detail="Новый логин уже занят")
+            raise HTTPException(status_code=400, detail="Логин уже занят")
         emp.login = new_login
 
-    new_password = data.pop("password", None)
-    if new_password:
-        emp.password_hash = get_password_hash(new_password)
-        emp.password_plain = new_password
+    if payload.password:
+        emp.password_hash = get_password_hash(payload.password)
+        emp.password_plain = payload.password
 
-    if "initials" in data:
-        emp.initials = data["initials"]
-    if "name" in data:
-        emp.name = data["name"]
-    if "position" in data:
-        emp.position = data["position"]
-    if "rate" in data:
-        emp.rate = data["rate"]
-    if "experience" in data:
-        emp.experience = data["experience"]
-    if "status" in data:
-        emp.status = data["status"]
-    if "salary" in data:
-        emp.salary = data["salary"]
+    for field in [
+        "initials",
+        "name",
+        "position",
+        "rate",
+        "experience",
+        "status",
+        "salary",
+        "hours",
+        "hours_detail",
+        "error_text",
+        "photo_url",
+        "warehouse",
+        "shift_role",
+        "on_shift",
+        "shift_rate",
+    ]:
+        val = getattr(payload, field)
+        if val is not None:
+            setattr(emp, field, val)
+
+    if payload.penalties is not None:
+        emp.penalties_json = json_dumps_list(payload.penalties)
+    if payload.absences is not None:
+        emp.absences_json = json_dumps_list(payload.absences)
+
+    # пересчёт баланс_int и нормочасов, если пришли salary/hours
+    if payload.salary is not None:
         emp.balance_int = money_to_int(emp.salary)
-    if "hours" in data:
-        emp.hours = data["hours"]
-    if "hours_detail" in data:
-        emp.hours_detail = data["hours_detail"]
-    if "penalties" in data and data["penalties"] is not None:
-        emp.penalties_json = json_dumps_list(data["penalties"])
-    if "absences" in data and data["absences"] is not None:
-        emp.absences_json = json_dumps_list(data["absences"])
-    if "error_text" in data:
-        emp.error_text = data["error_text"]
-    if "photo_url" in data:
-        emp.photo_url = data["photo_url"]
+    if payload.hours is not None:
+        try:
+            hours_int = int("".join(ch for ch in (emp.hours or "") if ch.isdigit()))
+        except ValueError:
+            hours_int = None
+        emp.contract_hours_per_month = hours_int
+        if hours_int and hours_int > 0 and emp.balance_int is not None:
+            emp.hourly_rate = emp.balance_int // hours_int
 
     db.commit()
     db.refresh(emp)
 
-    return get_employee(emp.id, db=db, admin=admin)
+    return get_employee(emp.id, admin=admin, db=db)
 
 
-# ---------- АДМИН: УДАЛИТЬ СОТРУДНИКА ----------
-
-@app.delete("/api/employees/{emp_id}")
+@app.delete("/api/employees/{employee_id}")
 def delete_employee(
-    emp_id: int,
-    db: Session = Depends(get_db),
+    employee_id: int,
     admin: Admin = Depends(require_admin),
+    db: Session = Depends(get_db),
 ):
-    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    emp = db.query(Employee).filter(Employee.id == employee_id).first()
     if not emp:
         raise HTTPException(status_code=404, detail="Сотрудник не найден")
-
-    db.delete(emp)
+    # мягкое удаление
+    emp.is_active = False
     db.commit()
-    return {"status": "deleted", "id": emp_id}
+    return {"status": "ok", "id": employee_id}
 
 
-# ---------- АДМИН: ЗАГРУЗКА ФОТО СОТРУДНИКА ----------
+# ---------- ФОТО СОТРУДНИКА ----------
 
-@app.post("/api/employees/{emp_id}/photo")
+@app.post("/api/employees/{employee_id}/photo")
 def upload_employee_photo(
-    emp_id: int,
+    employee_id: int,
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
     admin: Admin = Depends(require_admin),
+    db: Session = Depends(get_db),
 ):
-    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    emp = db.query(Employee).filter(Employee.id == employee_id).first()
     if not emp:
         raise HTTPException(status_code=404, detail="Сотрудник не найден")
 
-    ext = os.path.splitext(file.filename)[1] or ".jpg"
-    filename = f"employee_{emp_id}{ext}"
-    filepath = os.path.join(PHOTOS_DIR, filename)
+    ext = ""
+    if "." in file.filename:
+        ext = "." + file.filename.rsplit(".", 1)[-1].lower()
+    filename = f"emp_{employee_id}{ext}"
+    filepath = PHOTOS_DIR / filename
 
-    with open(filepath, "wb") as f:
+    with filepath.open("wb") as f:
         f.write(file.file.read())
 
     emp.photo_url = f"/static/{filename}"
     db.commit()
     db.refresh(emp)
 
-    return {"status": "ok", "photo_url": emp.photo_url}
+    return {"photo_url": emp.photo_url}
 
 
-# ---------- АДМИН: ЭКСПОРТ КАРТОЧКИ В EXCEL ----------
+# ---------- ЭКСПОРТ КАРТОЧКИ СОТРУДНИКА В EXCEL ----------
 
-@app.get("/api/employees/{emp_id}/export")
+@app.get("/api/employees/{employee_id}/export")
 def export_employee_excel(
-    emp_id: int,
-    db: Session = Depends(get_db),
+    employee_id: int,
     admin: Admin = Depends(require_admin),
+    db: Session = Depends(get_db),
 ):
-    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    emp = db.query(Employee).filter(Employee.id == employee_id).first()
     if not emp:
         raise HTTPException(status_code=404, detail="Сотрудник не найден")
 
@@ -1082,96 +1203,93 @@ def export_employee_excel(
     ws = wb.active
     ws.title = "Карточка сотрудника"
 
-    ws.append(["Поле", "Значение"])
-    ws.append(["ID", emp.id])
-    ws.append(["Логин", emp.login])
-    ws.append(["ФИО", emp.name])
-    ws.append(["Инициалы", emp.initials])
-    ws.append(["Должность", emp.position])
-    ws.append(["Оклад", emp.rate or ""])
-    ws.append(["Стаж", emp.experience or ""])
-    ws.append(["Статус", emp.status or ""])
-    ws.append(["Баланс", emp.salary or ""])
-    ws.append(["Отработанное время", emp.hours or ""])
-    ws.append(["Детализация времени", emp.hours_detail or ""])
-    ws.append(["Примечание / ошибка", emp.error_text or ""])
+    penalties = json_loads_list(emp.penalties_json)
+    absences = json_loads_list(emp.absences_json)
 
-    penalties = " ; ".join(json_loads_list(emp.penalties_json))
-    absences = " ; ".join(json_loads_list(emp.absences_json))
+    data_rows = [
+        ("ФИО", emp.name),
+        ("Логин", emp.login),
+        ("Должность", emp.position),
+        ("Оклад", emp.rate),
+        ("Стаж", emp.experience),
+        ("Статус", emp.status),
+        ("Баланс", emp.salary),
+        ("Отработанное время", emp.hours),
+        ("Детализация времени", emp.hours_detail),
+        ("Штрафы и дисциплина", "\n".join(penalties)),
+        ("Больничные и отсутствия", "\n".join(absences)),
+        ("Примечание / ошибка", emp.error_text),
+    ]
 
-    ws.append(["Штрафы и дисциплина", penalties])
-    ws.append(["Больничные и отсутствия", absences])
+    row_idx = 1
+    for label, value in data_rows:
+        ws.cell(row=row_idx, column=1, value=label)
+        ws.cell(row=row_idx, column=2, value=value)
+        row_idx += 1
 
-    if emp.photo_url:
-        ws.append(["Фото (URL)", emp.photo_url])
+    bio = io.BytesIO()
+    wb.save(bio)
+    bio.seek(0)
 
-    stream = io.BytesIO()
-    wb.save(stream)
-    stream.seek(0)
-
-    filename = f"employee_{emp_id}_card.xlsx"
-    headers = {
-        "Content-Disposition": f'attachment; filename="{filename}"'
-    }
+    filename = f"employee_{employee_id}_card.xlsx"
 
     return StreamingResponse(
-        stream,
+        bio,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers=headers,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        },
     )
 
 
-# ---------- АДМИН: ПЛАТЕЖИ (КОШЕЛЁК) ----------
+# ---------- ПЛАТЕЖИ / НАЧИСЛЕНИЯ ДЛЯ АДМИНА ----------
 
-@app.get("/api/employees/{emp_id}/payments", response_model=List[PaymentOut])
+@app.get("/api/employees/{employee_id}/payments", response_model=List[PaymentOut])
 def list_payments_for_employee(
-    emp_id: int,
-    db: Session = Depends(get_db),
+    employee_id: int,
     admin: Admin = Depends(require_admin),
+    db: Session = Depends(get_db),
 ):
-    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    emp = db.query(Employee).filter(Employee.id == employee_id).first()
     if not emp:
         raise HTTPException(status_code=404, detail="Сотрудник не найден")
 
     payments = (
         db.query(Payment)
-        .filter(Payment.employee_id == emp_id)
+        .filter(Payment.employee_id == employee_id)
         .order_by(Payment.created_at.desc(), Payment.id.desc())
         .all()
     )
     return payments
 
 
-@app.post("/api/employees/{emp_id}/payments", response_model=PaymentOut)
+@app.post("/api/employees/{employee_id}/payments", response_model=PaymentOut)
 def create_payment_for_employee(
-    emp_id: int,
+    employee_id: int,
     payload: PaymentCreate,
-    db: Session = Depends(get_db),
     admin: Admin = Depends(require_admin),
+    db: Session = Depends(get_db),
 ):
-    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    emp = db.query(Employee).filter(Employee.id == employee_id).first()
     if not emp:
         raise HTTPException(status_code=404, detail="Сотрудник не найден")
 
+    ensure_emp_balance_initialized(emp)
+    emp.balance_int += payload.amount
+    emp.salary = int_to_money(emp.balance_int)
+
     payment = Payment(
-        employee_id=emp_id,
+        employee_id=employee_id,
         type=payload.type,
         amount=payload.amount,
         comment=payload.comment,
     )
     db.add(payment)
+    db.flush()
 
-    # обновляем баланс сотрудника
-    ensure_emp_balance_initialized(emp)
-    emp.balance_int += payload.amount
-    emp.salary = int_to_money(emp.balance_int)
-
-    db.flush()  # чтобы у payment был created_at
-
-    # обновляем помесячную статистику
     update_month_stat_on_payment(
         db=db,
-        emp_id=emp_id,
+        emp_id=employee_id,
         amount_diff=payload.amount,
         created_at=payment.created_at,
         payment_type=payload.type,
@@ -1185,11 +1303,12 @@ def create_payment_for_employee(
     return payment
 
 
-@app.delete("/api/payments/{payment_id}")
-def delete_payment(
+@app.delete("/api/employees/{employee_id}/payments/{payment_id}")
+def delete_payment_for_employee(
+    employee_id: int,
     payment_id: int,
-    db: Session = Depends(get_db),
     admin: Admin = Depends(require_admin),
+    db: Session = Depends(get_db),
 ):
     payment = db.query(Payment).filter(Payment.id == payment_id).first()
     if not payment:
@@ -1197,12 +1316,10 @@ def delete_payment(
 
     emp = db.query(Employee).filter(Employee.id == payment.employee_id).first()
     if emp:
-        # откатываем баланс
         ensure_emp_balance_initialized(emp)
         emp.balance_int -= payment.amount
         emp.salary = int_to_money(emp.balance_int)
 
-        # откатываем помесячную статистику
         update_month_stat_on_payment(
             db=db,
             emp_id=emp.id,
@@ -1234,7 +1351,6 @@ def list_payments_for_employee_self(
     if not emp or not verify_password(payload.password, emp.password_hash):
         raise HTTPException(status_code=401, detail="Неверный логин или пароль")
 
-    # при желании можно перед выдачей ещё раз обновить баланс
     accrue_balance_for_employee(emp)
     db.commit()
 
@@ -1245,3 +1361,24 @@ def list_payments_for_employee_self(
         .all()
     )
     return payments
+
+
+# ---------- ФРОНТ: КАРТОЧКА СОТРУДНИКА (React/Vite) ----------
+
+@app.get("/card", response_class=HTMLResponse)
+def card_page():
+    """
+    Карточка сотрудника по адресу: http://127.0.0.1:8000/card
+    """
+    index_file = CARD_DIST / "index.html"
+    if not index_file.exists():
+        raise HTTPException(
+            status_code=500,
+            detail="Карточка сотрудника не собрана. В папке card выполни `npm run build`.",
+        )
+    return HTMLResponse(index_file.read_text(encoding="utf-8"))
+app.mount(
+    "/",  # корень сайта
+    StaticFiles(directory="wallet", html=True),
+    name="wallet",
+)
